@@ -17,7 +17,7 @@ DIAMOND_SHAPES = [
 METALS = {
     "Yellow Gold (14K)": "yellow_gold",
     "White Gold (14K)": "white_gold",
-    "Platinum": "platinum",
+    # Platinum removed
     "Rose Gold (14K)": "rose_gold"
 }
 SETTINGS = {
@@ -25,12 +25,17 @@ SETTINGS = {
     "Halo (Center diamond surrounded by small ones)": "halo",
     "Three-Stone": "three_stone"
 }
+# NEW: Certificate Types
+CERTIFICATE_TYPES = ["GIA", "CGL"]
 
-# --- NEW: Color definitions for drawing ---
+# NEW: Currency Conversion
+USD_TO_ILS_RATE = 3.7 # Example exchange rate
+
+# --- Color definitions for drawing ---
 METAL_COLORS_RGB = {
     "yellow_gold": (212, 175, 55),
     "white_gold": (220, 220, 220),
-    "platinum": (205, 205, 205),
+    # platinum removed
     "rose_gold": (230, 180, 170)
 }
 DIAMOND_OUTLINE = (50, 50, 50) # Dark grey outline
@@ -44,6 +49,10 @@ selected_carat = st.sidebar.slider("2. Select Size (Carat):",
                                    value=1.0, step=0.1)
 selected_setting = st.sidebar.selectbox("3. Select Setting Type:", list(SETTINGS.keys()))
 selected_metal = st.sidebar.selectbox("4. Select Metal Type:", list(METALS.keys()))
+# NEW: Certificate selection
+selected_certificate = st.sidebar.selectbox("5. Select Certificate:", CERTIFICATE_TYPES)
+
+st.sidebar.subheader("Diamond Quality")
 selected_color = st.sidebar.select_slider("Color:",
                                           options=["J", "I", "H", "G", "F", "E", "D"],
                                           value="G")
@@ -52,7 +61,7 @@ selected_clarity = st.sidebar.select_slider("Clarity:",
                                             value="VS1")
 
 # --- Price Calculation Logic (Demo) ---
-BASE_DIAMOND_PRICE_PER_CARAT = 5000
+BASE_DIAMOND_PRICE_PER_CARAT = 5000 # Base price in USD
 # IMPORTANT: Keys must match the new English strings in DIAMOND_SHAPES
 SHAPE_MULTIPLIERS = {
     "Round": 1.0, "Princess": 0.9, "Oval": 0.95,
@@ -62,21 +71,36 @@ SHAPE_MULTIPLIERS = {
 COLOR_MULTIPLIERS = {"J": 0.8, "I": 0.9, "H": 1.0, "G": 1.1, "F": 1.3, "E": 1.5, "D": 2.0}
 CLARITY_MULTIPLIERS = {"SI2": 0.8, "SI1": 0.9, "VS2": 1.0, "VS1": 1.1, "VVS2": 1.3, "VVS1": 1.5, "IF": 1.8, "FL": 2.2}
 # IMPORTANT: Keys must match the new English strings in METALS
-METAL_BASE_PRICE = {"Yellow Gold (14K)": 500, "White Gold (14K)": 550, "Platinum": 900, "Rose Gold (14K)": 520}
+METAL_BASE_PRICE = {"Yellow Gold (14K)": 500, "White Gold (14K)": 550, "Rose Gold (14K)": 520} # In USD
 # IMPORTANT: Keys must match the new English strings in SETTINGS
-SETTING_BASE_PRICE = {"Solitaire (Single Diamond)": 200, "Halo (Center diamond surrounded by small ones)": 800, "Three-Stone": 600}
+SETTING_BASE_PRICE = {"Solitaire (Single Diamond)": 200, "Halo (Center diamond surrounded by small ones)": 800, "Three-Stone": 600} # In USD
+# NEW: Certificate price factor
+CERTIFICATE_MULTIPLIERS = {"GIA": 1.15, "CGL": 1.0} # GIA costs 15% more
 
-def calculate_price(shape, carat, color, clarity, metal, setting):
+def calculate_price(shape, carat, color, clarity, metal, setting, certificate):
+    # 1. Calculate Diamond Price in USD
     base_price = BASE_DIAMOND_PRICE_PER_CARAT * carat
     shape_factor = SHAPE_MULTIPLIERS.get(shape, 1.0)
     color_factor = COLOR_MULTIPLIERS.get(color, 1.0)
     clarity_factor = CLARITY_MULTIPLIERS.get(clarity, 1.0)
-    diamond_price = base_price * shape_factor * color_factor * clarity_factor
-    setting_price = METAL_BASE_PRICE.get(metal, 500) + SETTING_BASE_PRICE.get(setting, 200)
-    total_price = diamond_price + setting_price
-    return total_price, diamond_price, setting_price
+    cert_factor = CERTIFICATE_MULTIPLIERS.get(certificate, 1.0)
+    
+    diamond_price_usd = base_price * shape_factor * color_factor * clarity_factor * cert_factor
+    
+    # 2. Calculate Setting Price in USD
+    setting_price_usd = METAL_BASE_PRICE.get(metal, 500) + SETTING_BASE_PRICE.get(setting, 200)
+    
+    # 3. Calculate Total Price in USD
+    total_price_usd = diamond_price_usd + setting_price_usd
+    
+    # 4. Convert all prices to ILS
+    total_price_ils = total_price_usd * USD_TO_ILS_RATE
+    diamond_price_ils = diamond_price_usd * USD_TO_ILS_RATE
+    setting_price_ils = setting_price_usd * USD_TO_ILS_RATE
+    
+    return total_price_ils, diamond_price_ils, setting_price_ils
 
-# --- NEW: Image SKETCHING Logic ---
+# --- Image SKETCHING Logic (Top-Down View) ---
 
 def create_ring_sketch(shape, carat, metal_key, setting_key):
     """
@@ -93,12 +117,11 @@ def create_ring_sketch(shape, carat, metal_key, setting_key):
     band_color = METAL_COLORS_RGB.get(metal_key, "grey")
     
     # This is the main logic: convert carat to pixel size
-    # This scaling factor (80) needs calibration to look good.
     base_size_px = int(carat * 80)
     half_size = base_size_px // 2
 
     # 3. Draw the Ring Band (as a simple thick circle)
-    # The band will be slightly larger than the diamond
+    # This is the top-down view
     band_radius = half_size + 15 
     band_thickness = 10
     draw.ellipse(
@@ -196,7 +219,8 @@ def create_ring_sketch(shape, carat, metal_key, setting_key):
 # 1. Calculate price
 total_price, diamond_price, setting_price = calculate_price(
     selected_shape, selected_carat, selected_color,
-    selected_clarity, selected_metal, selected_setting
+    selected_clarity, selected_metal, selected_setting,
+    selected_certificate # Pass the new variable
 )
 
 # 2. Generate the sketch
@@ -211,8 +235,6 @@ final_ring_image = create_ring_sketch(
 st.sidebar.success("Your sketch is ready!")
 
 # --- Display Area (Main Page) ---
-# (This section is identical to the previous version)
-
 col1, col2 = st.columns(2)
 
 with col1:
@@ -220,7 +242,8 @@ with col1:
     st.image(final_ring_image, use_column_width=True)
 
 with col2:
-    st.header(f"Estimated Price: ${total_price:,.0f}")
+    # Updated to show ILS (₪)
+    st.header(f"Estimated Price: ₪{total_price:,.0f}")
     st.subheader("Your Selections:")
     
     st.markdown(f"""
@@ -230,11 +253,13 @@ with col2:
     * **Clarity:** {selected_clarity}
     * **Setting:** {selected_setting}
     * **Metal:** {selected_metal}
+    * **Certificate:** {selected_certificate} 
     """)
     
     st.subheader("Cost Breakdown (Demo):")
+    # Updated to show ILS (₪)
     st.markdown(f"""
-    * **Diamond Cost:** ${diamond_price:,.0f}
-    * **Setting & Metal Cost:** ${setting_price:,.0f}
+    * **Diamond Cost:** ₪{diamond_price:,.0f}
+    * **Setting & Metal Cost:** ₪{setting_price:,.0f}
     """)
 
