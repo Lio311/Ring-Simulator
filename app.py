@@ -261,38 +261,96 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
         side_stone_radius = max(3, int(base_size_px / 6.0))
         total_setting_width += (side_stone_radius * 6)
             
-    # --- Step B: Draw the Ring Band "Shoulders" (FIRST) ---
+# --- Step B: Draw the Ring Band "Shoulders" (FIRST) ---
     band_thickness = 14
     band_y_start = CENTER[1] - (band_thickness // 2)
     band_y_end = CENTER[1] + (band_thickness // 2)
 
-    setting_half_width = (total_setting_width // 2)
+    setting_half_width = (total_setting_width // 2) 
+
+    # Determine the actual connection point for the band, considering the stone's shape
+    # For settings like halo, three-stone, seven-stone, the setting_half_width will be larger
+    # For solitaire, it's just the main stone's width
+    connection_x_left = CENTER[0] - setting_half_width
+    connection_x_right = CENTER[0] + setting_half_width
+
+    # Adjust connection_x based on main stone's actual half_width if solitaire
+    if "solitaire" in setting_key:
+        connection_x_left = CENTER[0] - main_stone_extents['half_width']
+        connection_x_right = CENTER[0] + main_stone_extents['half_width']
     
-    if shape in ["Oval", "Pear", "Marquise"]:
-        # Adjust band connection for taller stones
-        setting_half_width = max(main_stone_extents['half_width'], setting_half_width)
-    if "three_stone" in setting_key:
-        setting_half_width = max(main_stone_extents['half_width'] + side_stone_radius*2, setting_half_width)
-    if "seven_stone" in setting_key:
-        # Calculate cluster width
-        cluster_width = side_stone_radius * 4 # Approx
-        setting_half_width = max(main_stone_extents['half_width'] + cluster_width, setting_half_width)
+    # Ensure band doesn't go off canvas
+    band_start_x_left = max(0, connection_x_left - band_thickness) # extend a bit for curve
+    band_start_x_right = min(IMG_SIZE, connection_x_right + band_thickness) # extend a bit for curve
 
-        
-    band_end_x_left = CENTER[0] - setting_half_width
-    band_end_x_right = CENTER[0] + setting_half_width
-
-    band_end_x_left = max(0, band_end_x_left)
-    band_end_x_right = min(IMG_SIZE, band_end_x_right)
-
+    # Draw the main band rectangles (away from the stone)
     draw.rectangle(
-        [(0, band_y_start), (band_end_x_left, band_y_end)],
+        [(0, band_y_start), (connection_x_left - band_thickness, band_y_end)],
         fill=band_color
     )
     draw.rectangle(
-        [(band_end_x_right, band_y_start), (IMG_SIZE, band_y_end)],
+        [(connection_x_right + band_thickness, band_y_start), (IMG_SIZE, band_y_end)],
         fill=band_color
     )
+
+    # Now, draw the connecting "shoulders" with curves if necessary
+    # These connect the main band to the setting/stone
+    if "Round" in shape or "Oval" in shape or "Cushion" in shape:
+        # Use rounded rectangles or ellipses for a smooth connection
+        draw.rounded_rectangle(
+            [(connection_x_left - band_thickness, band_y_start), (connection_x_right + band_thickness, band_y_end)],
+            radius=band_thickness // 2, # Adjust radius for smoother curve
+            fill=band_color
+        )
+    elif "Princess" in shape or "Emerald" in shape or "Radiant" in shape or "Asscher" in shape:
+        # For square/rectangular shapes, a straight connection is appropriate
+        draw.rectangle(
+            [(connection_x_left - band_thickness, band_y_start), (connection_x_right + band_thickness, band_y_end)],
+            fill=band_color
+        )
+    elif "Pear" in shape:
+        # For pear shape, connect to the wider part
+        points_left = [
+            (CENTER[0] - main_stone_extents['half_width'], CENTER[1] + main_stone_extents['half_height']), # Bottom-left of stone
+            (CENTER[0] - main_stone_extents['half_width'], CENTER[1] - main_stone_extents['half_height']), # Top-left of stone
+            (connection_x_left - band_thickness, band_y_start),
+            (connection_x_left - band_thickness, band_y_end),
+        ]
+        points_right = [
+            (CENTER[0] + main_stone_extents['half_width'], CENTER[1] + main_stone_extents['half_height']), # Bottom-right of stone
+            (CENTER[0] + main_stone_extents['half_width'], CENTER[1] - main_stone_extents['half_height']), # Top-right of stone
+            (connection_x_right + band_thickness, band_y_start),
+            (connection_x_right + band_thickness, band_y_end),
+        ]
+        # This is a simplification; for a perfect fit, you'd need to calculate precise tangent points.
+        # For now, we'll draw a rectangle that covers the area and blends.
+        draw.rectangle(
+            [(connection_x_left - band_thickness, band_y_start), (connection_x_right + band_thickness, band_y_end)],
+            fill=band_color
+        )
+    elif "Marquise" in shape:
+        # For marquise shape, connect to the widest part (sides)
+        points_left = [
+            (CENTER[0] - main_stone_extents['half_width'], CENTER[1]), # Left point of stone
+            (connection_x_left - band_thickness, band_y_start),
+            (connection_x_left - band_thickness, band_y_end),
+        ]
+        points_right = [
+            (CENTER[0] + main_stone_extents['half_width'], CENTER[1]), # Right point of stone
+            (connection_x_right + band_thickness, band_y_start),
+            (connection_x_right + band_thickness, band_y_end),
+        ]
+        draw.rectangle(
+            [(connection_x_left - band_thickness, band_y_start), (connection_x_right + band_thickness, band_y_end)],
+            fill=band_color
+        )
+    # The default for settings other than solitaire (halo, three-stone, seven-stone)
+    # will be covered by the main band drawing, as they are generally more symmetrical.
+    if not ("solitaire" in setting_key):
+        draw.rectangle(
+            [(connection_x_left, band_y_start), (connection_x_right, band_y_end)],
+            fill=band_color
+        )
     
     # --- Step C: Draw Main Diamond (SECOND) ---
     main_radius_x = main_stone_extents['half_width']
