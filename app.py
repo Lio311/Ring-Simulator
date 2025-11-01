@@ -47,7 +47,6 @@ selected_carat = st.sidebar.slider("2. Select Size (Carat):",
                                    value=1.0, step=0.1)
 selected_diamond_type = st.sidebar.selectbox("3. Select Diamond Type:", DIAMOND_TYPES)
 
-# UPDATED: Moved Diamond Quality section up
 st.sidebar.subheader("4. Diamond Quality")
 selected_color = st.sidebar.select_slider("Color:",
                                           options=["J", "I", "H", "G", "F", "E", "D"],
@@ -56,9 +55,14 @@ selected_clarity = st.sidebar.select_slider("Clarity:",
                                             options=["SI2", "SI1", "VS2", "VS1", "VVS2", "VVS1", "IF", "FL"],
                                             value="VS1")
 
-selected_setting = st.sidebar.selectbox("5. Select Setting Type:", list(SETTINGS.keys()))
+# UPDATED ORDER: Metal and Certificate are now before Setting
+selected_metal = st.sidebar.selectbox("5. Select Metal Type:", list(METALS.keys()))
+selected_certificate = st.sidebar.selectbox("6. Select Certificate:", CERTIFICATE_TYPES)
 
-# --- Side stone selection ---
+# UPDATED ORDER: Setting is now last, followed by side stone options
+selected_setting = st.sidebar.selectbox("7. Select Setting Type:", list(SETTINGS.keys()))
+
+# --- Side stone selection (now follows Setting) ---
 setting_key = SETTINGS[selected_setting]
 side_stone_shapes = ("Round",) # Default tuple
 
@@ -89,9 +93,6 @@ elif setting_key == "seven_stone":
         key="seven_stone_3"
     )
     side_stone_shapes = (shape_1, shape_2, shape_3) # Tuple with three elements
-
-selected_metal = st.sidebar.selectbox("6. Select Metal Type:", list(METALS.keys()))
-selected_certificate = st.sidebar.selectbox("7. Select Certificate:", CERTIFICATE_TYPES)
 
 
 # --- Price Calculation Logic (Demo) ---
@@ -148,7 +149,6 @@ def draw_prongs(draw, center_x, center_y, radius_x, radius_y, color, base_size_p
     prong_size = max(2, int(base_size_px * 0.05)) 
     half_prong = max(1, prong_size // 2)
     
-    # UPDATED: Use separate x/y offsets based on respective radii
     offset_x = radius_x + half_prong 
     offset_y = radius_y + half_prong
     
@@ -250,6 +250,7 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
         main_stone_extents['half_width'] = max(1, half_size // 2)
         main_stone_coords = [(CENTER[0] - main_stone_extents['half_width'], CENTER[1] - main_stone_extents['half_height']), (CENTER[0] + main_stone_extents['half_width'], CENTER[1] + main_stone_extents['half_height'])]
 
+    side_stone_radius = 0 # Initialize
     if "halo" in setting_key:
         halo_padding = 8
         total_setting_width += (halo_padding * 2)
@@ -437,9 +438,9 @@ with col2:
     * **Diamond Type:** {selected_diamond_type}
     * **Color:** {selected_color}
     * **Clarity:** {selected_clarity}
-    * **Setting:** {selected_setting}
     * **Metal:** {selected_metal}
     * **Certificate:** {selected_certificate} 
+    * **Setting:** {selected_setting}
     """
     
     if setting_key == "three_stone":
