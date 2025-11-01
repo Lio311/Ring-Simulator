@@ -14,6 +14,8 @@ DIAMOND_SHAPES = [
     "Cushion", "Pear", "Marquise",
     "Asscher", "Radiant"
 ]
+# NEW: Diamond Type
+DIAMOND_TYPES = ["Natural", "Lab-Grown"]
 METALS = {
     "Yellow Gold (14K)": "yellow_gold",
     "White Gold (14K)": "white_gold",
@@ -44,7 +46,10 @@ selected_shape = st.sidebar.selectbox("1. Select Diamond Shape:", DIAMOND_SHAPES
 selected_carat = st.sidebar.slider("2. Select Size (Carat):",
                                    min_value=0.5, max_value=3.0,
                                    value=1.0, step=0.1)
-selected_setting = st.sidebar.selectbox("3. Select Setting Type:", list(SETTINGS.keys()))
+# NEW: Diamond Type Selection
+selected_diamond_type = st.sidebar.selectbox("3. Select Diamond Type:", DIAMOND_TYPES)
+
+selected_setting = st.sidebar.selectbox("4. Select Setting Type:", list(SETTINGS.keys()))
 
 # --- Side stone selection ---
 setting_key = SETTINGS[selected_setting]
@@ -78,8 +83,8 @@ elif setting_key == "seven_stone":
     )
     side_stone_shapes = (shape_1, shape_2, shape_3) # Tuple with three elements
 
-selected_metal = st.sidebar.selectbox("4. Select Metal Type:", list(METALS.keys()))
-selected_certificate = st.sidebar.selectbox("5. Select Certificate:", CERTIFICATE_TYPES)
+selected_metal = st.sidebar.selectbox("5. Select Metal Type:", list(METALS.keys()))
+selected_certificate = st.sidebar.selectbox("6. Select Certificate:", CERTIFICATE_TYPES)
 
 st.sidebar.subheader("Diamond Quality")
 selected_color = st.sidebar.select_slider("Color:",
@@ -91,6 +96,8 @@ selected_clarity = st.sidebar.select_slider("Clarity:",
 
 # --- Price Calculation Logic (Demo) ---
 BASE_DIAMOND_PRICE_PER_CARAT = 5000
+# NEW: Diamond Type Multiplier
+DIAMOND_TYPE_MULTIPLIERS = {"Natural": 1.0, "Lab-Grown": 0.5} 
 SHAPE_MULTIPLIERS = {
     "Round": 1.0, "Princess": 0.9, "Oval": 0.95,
     "Emerald": 0.9, "Cushion": 0.85, "Pear": 0.9,
@@ -108,14 +115,18 @@ SETTING_BASE_PRICE = {
 CERTIFICATE_MULTIPLIERS = {"GIA": 1.15, "CGL": 1.0}
 SIDE_STONE_MULTIPLIER = {"Round": 1.0, "Marquise": 1.2, "Pear": 1.25}
 
-def calculate_price(shape, carat, color, clarity, metal, setting, certificate, side_shapes_tuple):
+def calculate_price(shape, carat, color, clarity, metal, setting, certificate, side_shapes_tuple, diamond_type):
     base_price = BASE_DIAMOND_PRICE_PER_CARAT * carat
+    
+    # Get all multipliers
+    type_factor = DIAMOND_TYPE_MULTIPLIERS.get(diamond_type, 1.0)
     shape_factor = SHAPE_MULTIPLIERS.get(shape, 1.0)
     color_factor = COLOR_MULTIPLIERS.get(color, 1.0)
     clarity_factor = CLARITY_MULTIPLIERS.get(clarity, 1.0)
     cert_factor = CERTIFICATE_MULTIPLIERS.get(certificate, 1.0)
     
-    diamond_price_usd = base_price * shape_factor * color_factor * clarity_factor * cert_factor
+    # Calculate final diamond price
+    diamond_price_usd = base_price * type_factor * shape_factor * color_factor * clarity_factor * cert_factor
     
     setting_base = SETTING_BASE_PRICE.get(setting, 200)
     
@@ -137,10 +148,8 @@ def calculate_price(shape, carat, color, clarity, metal, setting, certificate, s
 # --- Helper function for drawing prongs ---
 def draw_prongs(draw, center_x, center_y, radius, color, base_size_px):
     """Draws 4 small prongs outside a stone."""
-    # UPDATED: Prongs are much smaller and relative to the main stone size
     prong_size = max(2, int(base_size_px * 0.05)) 
     half_prong = max(1, prong_size // 2)
-    # UPDATED: Offset to be just *outside* the stone's radius
     offset = radius + half_prong 
     
     draw.ellipse([(center_x - offset - half_prong, center_y - half_prong), 
@@ -233,11 +242,9 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
         halo_padding = 8
         total_setting_width += (halo_padding * 2)
     elif "three_stone" in setting_key:
-        # UPDATED: Side stones are smaller
         side_stone_radius = max(4, int(base_size_px / 4.0)) 
         total_setting_width += (side_stone_radius * 4)
     elif "seven_stone" in setting_key:
-        # UPDATED: Side stones are much smaller
         side_stone_radius = max(3, int(base_size_px / 6.0))
         total_setting_width += (side_stone_radius * 6)
             
@@ -321,7 +328,7 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
             
     elif "three_stone" in setting_key:
         side_stone_shape = side_shapes_tuple[0]
-        side_stone_radius = max(4, int(base_size_px / 4.0)) # UPDATED: Smaller size
+        side_stone_radius = max(4, int(base_size_px / 4.0))
         
         left_center_x = CENTER[0] - half_size - side_stone_radius
         draw_side_stone(draw, side_stone_shape, left_center_x, CENTER[1], side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='right')
@@ -335,7 +342,7 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
         
     elif "seven_stone" in setting_key:
         shape_1, shape_2, shape_3 = side_shapes_tuple
-        side_stone_radius = max(3, int(base_size_px / 6.0)) # UPDATED: Much smaller size
+        side_stone_radius = max(3, int(base_size_px / 6.0))
         buffer = 1 
         
         # --- Left Cluster (3 stones) ---
@@ -357,7 +364,8 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
         # --- Right Cluster (3 stones) ---
         right_1_x = CENTER[0] + half_size + side_stone_radius
         right_1_y = CENTER[1] - side_stone_radius - buffer
-        draw_side_stone(draw, shape_1, right_1_x, right_1_y, side_stone_radius, DIAMOND_FILL, DIAMIND_OUTLINE, orientation='left')
+        # BUG FIX: Changed DIAMIND_OUTLINE to DIAMOND_OUTLINE
+        draw_side_stone(draw, shape_1, right_1_x, right_1_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='left')
         draw_prongs(draw, right_1_x, right_1_y, side_stone_radius, band_color, base_size_px=base_size_px)
         
         right_2_x = CENTER[0] + half_size + side_stone_radius
@@ -381,7 +389,7 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
 total_price, diamond_price, setting_price = calculate_price(
     selected_shape, selected_carat, selected_color,
     selected_clarity, selected_metal, selected_setting,
-    selected_certificate, side_stone_shapes
+    selected_certificate, side_stone_shapes, selected_diamond_type # Pass new var
 )
 
 # 2. Generate the sketch
@@ -410,6 +418,7 @@ with col2:
     selections_markdown = f"""
     * **Diamond Shape:** {selected_shape}
     * **Carat Weight:** {selected_carat}
+    * **Diamond Type:** {selected_diamond_type}
     * **Color:** {selected_color}
     * **Clarity:** {selected_clarity}
     * **Setting:** {selected_setting}
