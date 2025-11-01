@@ -97,3 +97,34 @@ total_price, diamond_price, setting_price = calculate_price(
     selected_shape, selected_carat, selected_color, 
     selected_clarity, selected_metal, selected_setting
 )
+
+# --- הצגת התוצאות ---
+
+# נחלק את המסך לשניים
+col1, col2 = st.columns(2)
+
+with col1:
+    st.header("הטבעת שלך:")
+    # מרכוז התמונה
+    st.image(final_ring_image, use_column_width=True)
+
+with col2:
+    st.header(f"הערכת מחיר: ${total_price:,.0f}")
+    st.subheader("פירוט הבחירות שלך:")
+    
+    st.markdown(f"""
+    * **צורת יהלום:** {selected_shape}
+    * **משקל (קראט):** {selected_carat}
+    * **צבע:** {selected_color}
+    * **ניקיון:** {selected_clarity}
+    * **שיבוץ:** {selected_setting}
+    * **מתכת:** {selected_metal}
+    """)
+    
+    st.subheader("פירוט עלות (דמו):")
+    st.markdown(f"""
+    * **עלות יהלום:** ${diamond_price:,.0f}
+    * **עלות שיבוץ ומתכת:** ${setting_price:,.0f}
+    """)
+
+st.sidebar.success("הטבעת שלך מוכנה!")
