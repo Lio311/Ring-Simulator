@@ -498,7 +498,7 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
         
         # Right Cluster
         right_1_x, right_1_y = CENTER[0] + h_offset_1, CENTER[1] - v_offset_1
-        rx4, ry4 = draw_side_stone(draw, shape_1, right_1_x, right_1_y, side_stone_radius, DIAMIND_FILL, DIAMOND_OUTLINE, orientation='left')
+        rx4, ry4 = draw_side_stone(draw, shape_1, right_1_x, right_1_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='left')
         draw_prongs(draw, right_1_x, right_1_y, rx4, ry4, band_color, base_size_px=base_size_px)
         
         right_2_x, right_2_y = CENTER[0] + h_offset_1, CENTER[1] + v_offset_1
