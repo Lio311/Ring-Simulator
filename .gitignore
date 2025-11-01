@@ -1,0 +1,17 @@
+# סביבות וירטואליות
+venv/
+.venv/
+env/
+*.env
+
+# קבצי Cache של פייתון
+__pycache__/
+*.pyc
+
+# קבצי מערכת הפעלה
+.DS_Store
+Thumbs.db
+
+# קבצי IDE
+.vscode/
+.idea/.gitignore
