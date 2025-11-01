@@ -14,7 +14,6 @@ DIAMOND_SHAPES = [
     "Cushion", "Pear", "Marquise",
     "Asscher", "Radiant"
 ]
-# NEW: Diamond Type
 DIAMOND_TYPES = ["Natural", "Lab-Grown"]
 METALS = {
     "Yellow Gold (14K)": "yellow_gold",
@@ -46,10 +45,18 @@ selected_shape = st.sidebar.selectbox("1. Select Diamond Shape:", DIAMOND_SHAPES
 selected_carat = st.sidebar.slider("2. Select Size (Carat):",
                                    min_value=0.5, max_value=3.0,
                                    value=1.0, step=0.1)
-# NEW: Diamond Type Selection
 selected_diamond_type = st.sidebar.selectbox("3. Select Diamond Type:", DIAMOND_TYPES)
 
-selected_setting = st.sidebar.selectbox("4. Select Setting Type:", list(SETTINGS.keys()))
+# UPDATED: Moved Diamond Quality section up
+st.sidebar.subheader("4. Diamond Quality")
+selected_color = st.sidebar.select_slider("Color:",
+                                          options=["J", "I", "H", "G", "F", "E", "D"],
+                                          value="G")
+selected_clarity = st.sidebar.select_slider("Clarity:",
+                                            options=["SI2", "SI1", "VS2", "VS1", "VVS2", "VVS1", "IF", "FL"],
+                                            value="VS1")
+
+selected_setting = st.sidebar.selectbox("5. Select Setting Type:", list(SETTINGS.keys()))
 
 # --- Side stone selection ---
 setting_key = SETTINGS[selected_setting]
@@ -83,20 +90,12 @@ elif setting_key == "seven_stone":
     )
     side_stone_shapes = (shape_1, shape_2, shape_3) # Tuple with three elements
 
-selected_metal = st.sidebar.selectbox("5. Select Metal Type:", list(METALS.keys()))
-selected_certificate = st.sidebar.selectbox("6. Select Certificate:", CERTIFICATE_TYPES)
+selected_metal = st.sidebar.selectbox("6. Select Metal Type:", list(METALS.keys()))
+selected_certificate = st.sidebar.selectbox("7. Select Certificate:", CERTIFICATE_TYPES)
 
-st.sidebar.subheader("Diamond Quality")
-selected_color = st.sidebar.select_slider("Color:",
-                                          options=["J", "I", "H", "G", "F", "E", "D"],
-                                          value="G")
-selected_clarity = st.sidebar.select_slider("Clarity:",
-                                            options=["SI2", "SI1", "VS2", "VS1", "VVS2", "VVS1", "IF", "FL"],
-                                            value="VS1")
 
 # --- Price Calculation Logic (Demo) ---
 BASE_DIAMOND_PRICE_PER_CARAT = 5000
-# NEW: Diamond Type Multiplier
 DIAMOND_TYPE_MULTIPLIERS = {"Natural": 1.0, "Lab-Grown": 0.5} 
 SHAPE_MULTIPLIERS = {
     "Round": 1.0, "Princess": 0.9, "Oval": 0.95,
@@ -118,14 +117,12 @@ SIDE_STONE_MULTIPLIER = {"Round": 1.0, "Marquise": 1.2, "Pear": 1.25}
 def calculate_price(shape, carat, color, clarity, metal, setting, certificate, side_shapes_tuple, diamond_type):
     base_price = BASE_DIAMOND_PRICE_PER_CARAT * carat
     
-    # Get all multipliers
     type_factor = DIAMOND_TYPE_MULTIPLIERS.get(diamond_type, 1.0)
     shape_factor = SHAPE_MULTIPLIERS.get(shape, 1.0)
     color_factor = COLOR_MULTIPLIERS.get(color, 1.0)
     clarity_factor = CLARITY_MULTIPLIERS.get(clarity, 1.0)
     cert_factor = CERTIFICATE_MULTIPLIERS.get(certificate, 1.0)
     
-    # Calculate final diamond price
     diamond_price_usd = base_price * type_factor * shape_factor * color_factor * clarity_factor * cert_factor
     
     setting_base = SETTING_BASE_PRICE.get(setting, 200)
@@ -146,25 +143,31 @@ def calculate_price(shape, carat, color, clarity, metal, setting, certificate, s
     return total_price_ils, diamond_price_ils, setting_price_ils
 
 # --- Helper function for drawing prongs ---
-def draw_prongs(draw, center_x, center_y, radius, color, base_size_px):
-    """Draws 4 small prongs outside a stone."""
+def draw_prongs(draw, center_x, center_y, radius_x, radius_y, color, base_size_px):
+    """Draws 4 small prongs outside a stone, respecting x and y radius."""
     prong_size = max(2, int(base_size_px * 0.05)) 
     half_prong = max(1, prong_size // 2)
-    offset = radius + half_prong 
     
-    draw.ellipse([(center_x - offset - half_prong, center_y - half_prong), 
-                  (center_x - offset + half_prong, center_y + half_prong)], fill=color) # Left
-    draw.ellipse([(center_x + offset - half_prong, center_y - half_prong), 
-                  (center_x + offset + half_prong, center_y + half_prong)], fill=color) # Right
-    draw.ellipse([(center_x - half_prong, center_y - offset - half_prong), 
-                  (center_x + half_prong, center_y - offset + half_prong)], fill=color) # Top
-    draw.ellipse([(center_x - half_prong, center_y + offset - half_prong), 
-                  (center_x + half_prong, center_y + offset + half_prong)], fill=color) # Bottom
+    # UPDATED: Use separate x/y offsets based on respective radii
+    offset_x = radius_x + half_prong 
+    offset_y = radius_y + half_prong
+    
+    draw.ellipse([(center_x - offset_x - half_prong, center_y - half_prong), 
+                  (center_x - offset_x + half_prong, center_y + half_prong)], fill=color) # Left
+    draw.ellipse([(center_x + offset_x - half_prong, center_y - half_prong), 
+                  (center_x + offset_x + half_prong, center_y + half_prong)], fill=color) # Right
+    draw.ellipse([(center_x - half_prong, center_y - offset_y - half_prong), 
+                  (center_x + half_prong, center_y - offset_y + half_prong)], fill=color) # Top
+    draw.ellipse([(center_x - half_prong, center_y + offset_y - half_prong), 
+                  (center_x + half_prong, center_y + offset_y + half_prong)], fill=color) # Bottom
 
 # --- Helper function for drawing side stones ---
 def draw_side_stone(draw, shape, center_x, center_y, radius, color, outline, orientation='up'):
     if radius <= 0: return
     
+    h_radius_out = radius
+    v_radius_out = radius
+
     if shape == "Round":
         draw.ellipse(
             [(center_x - radius, center_y - radius),
@@ -179,6 +182,9 @@ def draw_side_stone(draw, shape, center_x, center_y, radius, color, outline, ori
             h_radius = int(radius * 1.5)
             v_radius = max(1, radius // 2)
         
+        h_radius_out = h_radius
+        v_radius_out = v_radius
+        
         draw.polygon(
             [
                 (center_x, center_y - v_radius), # Top
@@ -191,6 +197,7 @@ def draw_side_stone(draw, shape, center_x, center_y, radius, color, outline, ori
     elif shape == "Pear":
         h_radius = radius
         v_radius = int(radius * 1.3)
+        h_radius_out, v_radius_out = h_radius, v_radius # Default for up/down
         
         if orientation == 'up':
             points = [(center_x, center_y - v_radius), (center_x + h_radius, center_y), (center_x + h_radius * 0.5, center_y + v_radius), (center_x - h_radius * 0.5, center_y + v_radius), (center_x - h_radius, center_y)]
@@ -198,11 +205,15 @@ def draw_side_stone(draw, shape, center_x, center_y, radius, color, outline, ori
              points = [(center_x, center_y + v_radius), (center_x + h_radius, center_y), (center_x + h_radius * 0.5, center_y - v_radius), (center_x - h_radius * 0.5, center_y - v_radius), (center_x - h_radius, center_y)]
         elif orientation == 'left':
             h_radius, v_radius = v_radius, h_radius
+            h_radius_out, v_radius_out = h_radius, v_radius
             points = [(center_x - h_radius, center_y), (center_x, center_y - v_radius), (center_x + h_radius * 0.8, center_y - v_radius * 0.5), (center_x + h_radius * 0.8, center_y + v_radius * 0.5), (center_x, center_y + v_radius)]
         else: # 'right'
             h_radius, v_radius = v_radius, h_radius
+            h_radius_out, v_radius_out = h_radius, v_radius
             points = [(center_x + h_radius, center_y), (center_x, center_y - v_radius), (center_x - h_radius * 0.8, center_y - v_radius * 0.5), (center_x - h_radius * 0.8, center_y + v_radius * 0.5), (center_x, center_y + v_radius)]
         draw.polygon(points, outline=outline, fill=color, width=2)
+    
+    return h_radius_out, v_radius_out
 
 
 # --- Image SKETCHING Logic (Top-Down "On-Hand" View) ---
@@ -228,6 +239,7 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
 
     if "Oval" in shape:
         main_stone_extents['half_height'] = int(half_size * 1.4)
+        main_stone_extents['half_width'] = half_size
         main_stone_coords = [(CENTER[0] - half_size, CENTER[1] - main_stone_extents['half_height']), (CENTER[0] + half_size, CENTER[1] + main_stone_extents['half_height'])]
     elif "Pear" in shape:
         main_stone_extents['half_height'] = int(half_size * 1.3)
@@ -256,7 +268,13 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
     setting_half_width = (total_setting_width // 2) + 5 
     
     if shape in ["Oval", "Pear", "Marquise"]:
+        # Adjust band connection for taller stones
         setting_half_width = max(main_stone_extents['half_width'], setting_half_width)
+    if "three_stone" in setting_key:
+        setting_half_width = max(main_stone_extents['half_width'] + side_stone_radius*2, setting_half_width)
+    if "seven_stone" in setting_key:
+        setting_half_width = max(main_stone_extents['half_width'] + side_stone_radius*4, setting_half_width)
+
         
     band_end_x_left = CENTER[0] - setting_half_width
     band_end_x_right = CENTER[0] + setting_half_width
@@ -274,6 +292,9 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
     )
     
     # --- Step C: Draw Main Diamond (SECOND) ---
+    main_radius_x = main_stone_extents['half_width']
+    main_radius_y = main_stone_extents['half_height']
+    
     if "Round" in shape:
         draw.ellipse(main_stone_coords, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
     elif "Princess" in shape:
@@ -294,27 +315,23 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
     elif "Cushion" in shape:
         draw.rounded_rectangle(main_stone_coords, radius=max(1, half_size // 3), outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
     elif "Pear" in shape:
-        half_height = main_stone_extents['half_height']
-        half_width = main_stone_extents['half_width']
         points = [
-            (CENTER[0], CENTER[1] - half_height), # Top point
-            (CENTER[0] + half_width, CENTER[1]), # Right shoulder
-            (CENTER[0] + half_width * 0.5, CENTER[1] + half_height), # Bottom-right
-            (CENTER[0] - half_width * 0.5, CENTER[1] + half_height), # Bottom-left
-            (CENTER[0] - half_width, CENTER[1])  # Left shoulder
+            (CENTER[0], CENTER[1] - main_radius_y), # Top point
+            (CENTER[0] + main_radius_x, CENTER[1]), # Right shoulder
+            (CENTER[0] + main_radius_x * 0.5, CENTER[1] + main_radius_y), # Bottom-right
+            (CENTER[0] - main_radius_x * 0.5, CENTER[1] + main_radius_y), # Bottom-left
+            (CENTER[0] - main_radius_x, CENTER[1])  # Left shoulder
         ]
         draw.polygon(points, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
     elif "Marquise" in shape:
-        half_height = main_stone_extents['half_height']
-        half_width = main_stone_extents['half_width']
-        points = [(CENTER[0], CENTER[1] - half_height), (CENTER[0] + half_width, CENTER[1]), (CENTER[0], CENTER[1] + half_height), (CENTER[0] - half_width, CENTER[1])]
+        points = [(CENTER[0], CENTER[1] - main_radius_y), (CENTER[0] + main_radius_x, CENTER[1]), (CENTER[0], CENTER[1] + main_radius_y), (CENTER[0] - main_radius_x, CENTER[1])]
         draw.polygon(points, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
     else: # Fallback for Asscher
         draw.rectangle(main_stone_coords, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
 
     # --- Step D: Draw the Setting (Prongs, Halo, Side Stones) (LAST) ---
     if "solitaire" in setting_key:
-        draw_prongs(draw, CENTER[0], CENTER[1], half_size, band_color, base_size_px=base_size_px)
+        draw_prongs(draw, CENTER[0], CENTER[1], main_radius_x, main_radius_y, band_color, base_size_px=base_size_px)
             
     elif "halo" in setting_key:
         halo_padding = 8
@@ -330,15 +347,15 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
         side_stone_shape = side_shapes_tuple[0]
         side_stone_radius = max(4, int(base_size_px / 4.0))
         
-        left_center_x = CENTER[0] - half_size - side_stone_radius
-        draw_side_stone(draw, side_stone_shape, left_center_x, CENTER[1], side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='right')
-        draw_prongs(draw, left_center_x, CENTER[1], side_stone_radius, band_color, base_size_px=base_size_px)
+        left_center_x = CENTER[0] - main_radius_x - side_stone_radius
+        rx1, ry1 = draw_side_stone(draw, side_stone_shape, left_center_x, CENTER[1], side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='right')
+        draw_prongs(draw, left_center_x, CENTER[1], rx1, ry1, band_color, base_size_px=base_size_px)
         
-        right_center_x = CENTER[0] + half_size + side_stone_radius
-        draw_side_stone(draw, side_stone_shape, right_center_x, CENTER[1], side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='left')
-        draw_prongs(draw, right_center_x, CENTER[1], side_stone_radius, band_color, base_size_px=base_size_px)
+        right_center_x = CENTER[0] + main_radius_x + side_stone_radius
+        rx2, ry2 = draw_side_stone(draw, side_stone_shape, right_center_x, CENTER[1], side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='left')
+        draw_prongs(draw, right_center_x, CENTER[1], rx2, ry2, band_color, base_size_px=base_size_px)
         
-        draw_prongs(draw, CENTER[0], CENTER[1], half_size, band_color, base_size_px=base_size_px)
+        draw_prongs(draw, CENTER[0], CENTER[1], main_radius_x, main_radius_y, band_color, base_size_px=base_size_px)
         
     elif "seven_stone" in setting_key:
         shape_1, shape_2, shape_3 = side_shapes_tuple
@@ -346,40 +363,39 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
         buffer = 1 
         
         # --- Left Cluster (3 stones) ---
-        left_1_x = CENTER[0] - half_size - side_stone_radius
+        left_1_x = CENTER[0] - main_radius_x - side_stone_radius
         left_1_y = CENTER[1] - side_stone_radius - buffer 
-        draw_side_stone(draw, shape_1, left_1_x, left_1_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='right')
-        draw_prongs(draw, left_1_x, left_1_y, side_stone_radius, band_color, base_size_px=base_size_px)
+        rx1, ry1 = draw_side_stone(draw, shape_1, left_1_x, left_1_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='right')
+        draw_prongs(draw, left_1_x, left_1_y, rx1, ry1, band_color, base_size_px=base_size_px)
         
-        left_2_x = CENTER[0] - half_size - side_stone_radius
+        left_2_x = CENTER[0] - main_radius_x - side_stone_radius
         left_2_y = CENTER[1] + side_stone_radius + buffer
-        draw_side_stone(draw, shape_2, left_2_x, left_2_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='right')
-        draw_prongs(draw, left_2_x, left_2_y, side_stone_radius, band_color, base_size_px=base_size_px)
+        rx2, ry2 = draw_side_stone(draw, shape_2, left_2_x, left_2_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='right')
+        draw_prongs(draw, left_2_x, left_2_y, rx2, ry2, band_color, base_size_px=base_size_px)
         
         left_3_x = left_1_x - (side_stone_radius * 2)
         left_3_y = CENTER[1]
-        draw_side_stone(draw, shape_3, left_3_x, left_3_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='left')
-        draw_prongs(draw, left_3_x, left_3_y, side_stone_radius, band_color, base_size_px=base_size_px)
+        rx3, ry3 = draw_side_stone(draw, shape_3, left_3_x, left_3_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='left')
+        draw_prongs(draw, left_3_x, left_3_y, rx3, ry3, band_color, base_size_px=base_size_px)
         
         # --- Right Cluster (3 stones) ---
-        right_1_x = CENTER[0] + half_size + side_stone_radius
+        right_1_x = CENTER[0] + main_radius_x + side_stone_radius
         right_1_y = CENTER[1] - side_stone_radius - buffer
-        # BUG FIX: Changed DIAMIND_OUTLINE to DIAMOND_OUTLINE
-        draw_side_stone(draw, shape_1, right_1_x, right_1_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='left')
-        draw_prongs(draw, right_1_x, right_1_y, side_stone_radius, band_color, base_size_px=base_size_px)
+        rx4, ry4 = draw_side_stone(draw, shape_1, right_1_x, right_1_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='left')
+        draw_prongs(draw, right_1_x, right_1_y, rx4, ry4, band_color, base_size_px=base_size_px)
         
-        right_2_x = CENTER[0] + half_size + side_stone_radius
+        right_2_x = CENTER[0] + main_radius_x + side_stone_radius
         right_2_y = CENTER[1] + side_stone_radius + buffer
-        draw_side_stone(draw, shape_2, right_2_x, right_2_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='left')
-        draw_prongs(draw, right_2_x, right_2_y, side_stone_radius, band_color, base_size_px=base_size_px)
+        rx5, ry5 = draw_side_stone(draw, shape_2, right_2_x, right_2_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='left')
+        draw_prongs(draw, right_2_x, right_2_y, rx5, ry5, band_color, base_size_px=base_size_px)
 
         right_3_x = right_1_x + (side_stone_radius * 2)
         right_3_y = CENTER[1]
-        draw_side_stone(draw, shape_3, right_3_x, right_3_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='right')
-        draw_prongs(draw, right_3_x, right_3_y, side_stone_radius, band_color, base_size_px=base_size_px)
+        rx6, ry6 = draw_side_stone(draw, shape_3, right_3_x, right_3_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='right')
+        draw_prongs(draw, right_3_x, right_3_y, rx6, ry6, band_color, base_size_px=base_size_px)
         
         # Prongs for main stone
-        draw_prongs(draw, CENTER[0], CENTER[1], half_size, band_color, base_size_px=base_size_px)
+        draw_prongs(draw, CENTER[0], CENTER[1], main_radius_x, main_radius_y, band_color, base_size_px=base_size_px)
 
     return canvas
 
@@ -389,7 +405,7 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
 total_price, diamond_price, setting_price = calculate_price(
     selected_shape, selected_carat, selected_color,
     selected_clarity, selected_metal, selected_setting,
-    selected_certificate, side_stone_shapes, selected_diamond_type # Pass new var
+    selected_certificate, side_stone_shapes, selected_diamond_type
 )
 
 # 2. Generate the sketch
