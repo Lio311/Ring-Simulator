@@ -161,7 +161,7 @@ def draw_prongs(draw, center_x, center_y, radius_x, radius_y, color, base_size_p
 
 # --- Helper function for drawing side stones ---
 def draw_side_stone(draw, shape, center_x, center_y, radius, color, outline, orientation='up'):
-    if radius <= 0: return
+    if radius <= 0: return (0, 0) # Return tuple
     
     h_radius_out = radius
     v_radius_out = radius
@@ -173,14 +173,12 @@ def draw_side_stone(draw, shape, center_x, center_y, radius, color, outline, ori
             outline=outline, fill=color, width=2
         )
     elif shape == "Marquise":
-        # Default vertical orientation (for main stone)
-        h_radius = max(1, int(radius * 0.8)) # UPDATED: "Fatter" marquise (was 0.5)
+        h_radius = max(1, int(radius * 0.8))
         v_radius = int(radius * 1.5)
         
         if orientation == 'left' or orientation == 'right':
-            # Horizontal orientation (for side stones)
             h_radius = int(radius * 1.5)
-            v_radius = max(1, int(radius * 0.8)) # UPDATED: "Fatter" marquise (was 0.5)
+            v_radius = max(1, int(radius * 0.8))
         
         h_radius_out = h_radius
         v_radius_out = v_radius
@@ -197,7 +195,7 @@ def draw_side_stone(draw, shape, center_x, center_y, radius, color, outline, ori
     elif shape == "Pear":
         h_radius = radius
         v_radius = int(radius * 1.3)
-        h_radius_out, v_radius_out = h_radius, v_radius # Default for up/down
+        h_radius_out, v_radius_out = h_radius, v_radius
         
         if orientation == 'up':
             points = [(center_x, center_y - v_radius), (center_x + h_radius, center_y), (center_x + h_radius * 0.5, center_y + v_radius), (center_x - h_radius * 0.5, center_y + v_radius), (center_x - h_radius, center_y)]
@@ -247,19 +245,24 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
         main_stone_coords = [(CENTER[0] - main_stone_extents['half_width'], CENTER[1] - main_stone_extents['half_height']), (CENTER[0] + main_stone_extents['half_width'], CENTER[1] + main_stone_extents['half_height'])]
     elif "Marquise" in shape:
         main_stone_extents['half_height'] = int(half_size * 1.5)
-        main_stone_extents['half_width'] = max(1, int(half_size * 0.8)) # UPDATED: "Fatter" marquise (was 0.5)
+        main_stone_extents['half_width'] = max(1, int(half_size * 0.8)) # "Fatter" marquise
         main_stone_coords = [(CENTER[0] - main_stone_extents['half_width'], CENTER[1] - main_stone_extents['half_height']), (CENTER[0] + main_stone_extents['half_width'], CENTER[1] + main_stone_extents['half_height'])]
 
     side_stone_radius = 0 # Initialize
     if "halo" in setting_key:
         halo_padding = 8
-        total_setting_width += (halo_padding * 2)
+        # Adjust total setting width to accommodate halo around different shapes
+        total_setting_width = (main_stone_extents['half_width'] + halo_padding) * 2
     elif "three_stone" in setting_key:
         side_stone_radius = max(4, int(base_size_px / 4.0)) 
-        total_setting_width += (side_stone_radius * 4)
+        # Total width is main stone + 2 side stones
+        total_setting_width = (main_stone_extents['half_width'] * 2) + (side_stone_radius * 4) # Approximation
     elif "seven_stone" in setting_key:
         side_stone_radius = max(3, int(base_size_px / 6.0))
-        total_setting_width += (side_stone_radius * 6)
+        # Total width is main stone + 2 clusters (each approx 3 stones wide)
+        total_setting_width = (main_stone_extents['half_width'] * 2) + (side_stone_radius * 8) # Approximation
+    else: # Solitaire
+        total_setting_width = main_stone_extents['half_width'] * 2
             
     # --- Step B: Draw the Ring Band "Shoulders" (FIRST) ---
     # === THIS BLOCK IS CORRECTED ===
@@ -267,11 +270,15 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
     band_y_start = CENTER[1] - (band_thickness // 2)
     band_y_end = CENTER[1] + (band_thickness // 2)
 
-    # Calculate the effective width of the entire setting (main stone + halo/side stones)
-    # This determines where the band connects to the setting.
+    # Calculate the effective width of the entire setting
     effective_setting_half_width = total_setting_width // 2
 
-    # Draw the main parts of the band
+    # *** FIX ***: For Solitaire, the band connects to the stone's *actual* width.
+    # For other settings, it connects to the *total setting* width (which includes halo/side stones).
+    if setting_key == "solitaire":
+        effective_setting_half_width = main_stone_extents['half_width']
+
+    # Draw the main parts of the band, connecting to the effective width
     draw.rectangle(
         [(0, band_y_start), (CENTER[0] - effective_setting_half_width, band_y_end)],
         fill=band_color
@@ -281,8 +288,7 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
         fill=band_color
     )
 
-    # For settings that aren't solitaire, draw a connecting piece that acts as the "basket" or base for the setting
-    # This will blend the main band into the setting structure.
+    # For settings that aren't solitaire, draw a connecting piece (basket/base)
     if setting_key in ["halo", "three_stone", "seven_stone"]:
         draw.rectangle(
             [(CENTER[0] - effective_setting_half_width, band_y_start),
@@ -332,49 +338,84 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
     # --- Step D: Draw the Setting (Prongs, Halo, Side Stones) (LAST) ---
     # === THIS BLOCK IS CORRECTED ===
     if "solitaire" in setting_key:
-        draw_prongs(draw, CENTER[0], CENTER[1], main_radius_x, main_radius_y, band_color, base_size_px=base_size_px)
+        if shape in ["Marquise", "Pear"]:
+            # *** FIX ***: Special V-prongs for tips and side prongs for support
+            prong_size = max(2, int(base_size_px * 0.05)) * 2 # Make V-prongs more visible
+            half_prong_size = max(1, prong_size // 2)
+
+            # Side prongs (at widest part)
+            offset_x = main_radius_x + (half_prong_size // 2)
+            draw.ellipse([(CENTER[0] - offset_x - half_prong_size, CENTER[1] - half_prong_size),
+                          (CENTER[0] - offset_x + half_prong_size, CENTER[1] + half_prong_size)], fill=band_color) # Left
+            draw.ellipse([(CENTER[0] + offset_x - half_prong_size, CENTER[1] - half_prong_size),
+                          (CENTER[0] + offset_x + half_prong_size, CENTER[1] + half_prong_size)], fill=band_color) # Right
+
+            # V-prongs at tips (approximated)
+            offset_y_top = main_radius_y
+            # Top V-prong
+            draw.polygon([(CENTER[0], CENTER[1] - offset_y_top),
+                          (CENTER[0] - half_prong_size, CENTER[1] - offset_y_top - prong_size),
+                          (CENTER[0] + half_prong_size, CENTER[1] - offset_y_top - prong_size)], fill=band_color)
+            
+            if shape == "Marquise":
+                # Bottom V-prong
+                offset_y_bottom = main_radius_y
+                draw.polygon([(CENTER[0], CENTER[1] + offset_y_bottom),
+                              (CENTER[0] - half_prong_size, CENTER[1] + offset_y_bottom + prong_size),
+                              (CENTER[0] + half_prong_size, CENTER[1] + offset_y_bottom + prong_size)], fill=band_color)
+            else: # Pear (flat bottom)
+                # Bottom prongs (2)
+                offset_y_bottom = main_radius_y + (half_prong_size // 2)
+                prong_base_width = main_radius_x * 0.5
+                draw.ellipse([(CENTER[0] - prong_base_width - half_prong_size, CENTER[1] + offset_y_bottom - half_prong_size),
+                              (CENTER[0] - prong_base_width + half_prong_size, CENTER[1] + offset_y_bottom + half_prong_size)], fill=band_color)
+                draw.ellipse([(CENTER[0] + prong_base_width - half_prong_size, CENTER[1] + offset_y_bottom - half_prong_size),
+                              (CENTER[0] + prong_base_width + half_prong_size, CENTER[1] + offset_y_bottom + half_prong_size)], fill=band_color)
+        
+        else:
+            # Standard 4 prongs for all other shapes
+            draw_prongs(draw, CENTER[0], CENTER[1], main_radius_x, main_radius_y, band_color, base_size_px=base_size_px)
             
     elif "halo" in setting_key:
+        # *** FIX ***: No prongs for halo, just the halo frame
         halo_padding = 8
         coords = [(main_stone_coords[0][0] - halo_padding, main_stone_coords[0][1] - halo_padding), (main_stone_coords[1][0] + halo_padding, main_stone_coords[1][1] + halo_padding)]
         
-        # Draw the halo shape corresponding to the main diamond
         if "Round" in shape or "Oval" in shape:
             draw.ellipse(coords, outline=band_color, width=6)
         elif "Princess" in shape or "Cushion" in shape or "Emerald" in shape or "Radiant" in shape or "Asscher" in shape:
              draw.rounded_rectangle(coords, radius=halo_padding, outline=band_color, width=6)
         elif "Pear" in shape:
-             # For pear halo, we can try to approximate a larger pear shape
              halo_main_radius_x = main_radius_x + halo_padding
              halo_main_radius_y = main_radius_y + halo_padding
              points = [
-                 (CENTER[0], CENTER[1] - halo_main_radius_y), # Top point
-                 (CENTER[0] + halo_main_radius_x, CENTER[1]), # Right shoulder
-                 (CENTER[0] + halo_main_radius_x * 0.5, CENTER[1] + halo_main_radius_y), # Bottom-right
-                 (CENTER[0] - halo_main_radius_x * 0.5, CENTER[1] + halo_main_radius_y), # Bottom-left
-                 (CENTER[0] - halo_main_radius_x, CENTER[1])  # Left shoulder
-             ]
+                 (CENTER[0], CENTER[1] - halo_main_radius_y), (CENTER[0] + halo_main_radius_x, CENTER[1]),
+                 (CENTER[0] + halo_main_radius_x * 0.5, CENTER[1] + halo_main_radius_y),
+                 (CENTER[0] - halo_main_radius_x * 0.5, CENTER[1] + halo_main_radius_y),
+                 (CENTER[0] - halo_main_radius_x, CENTER[1])]
              draw.polygon(points, outline=band_color, width=6)
         elif "Marquise" in shape:
-             # For marquise halo, approximate a larger marquise shape
              halo_main_radius_x = main_radius_x + halo_padding
              halo_main_radius_y = main_radius_y + halo_padding
-             points = [(CENTER[0], CENTER[1] - halo_main_radius_y), (CENTER[0] + halo_main_radius_x, CENTER[1]), (CENTER[0], CENTER[1] + halo_main_radius_y), (CENTER[0] - main_radius_x, CENTER[1])]
+             points = [(CENTER[0], CENTER[1] - halo_main_radius_y), (CENTER[0] + halo_main_radius_x, CENTER[1]), 
+                       (CENTER[0], CENTER[1] + halo_main_radius_y), (CENTER[0] - halo_main_radius_x, CENTER[1])]
              draw.polygon(points, outline=band_color, width=6)
             
     elif "three_stone" in setting_key:
         side_stone_shape = side_shapes_tuple[0]
         side_stone_radius = max(4, int(base_size_px / 4.0))
         
-        left_center_x = CENTER[0] - main_radius_x - side_stone_radius
+        # Calculate horizontal offset based on main stone width
+        h_offset = main_radius_x + side_stone_radius
+        
+        left_center_x = CENTER[0] - h_offset
         rx1, ry1 = draw_side_stone(draw, side_stone_shape, left_center_x, CENTER[1], side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='right')
         draw_prongs(draw, left_center_x, CENTER[1], rx1, ry1, band_color, base_size_px=base_size_px)
         
-        right_center_x = CENTER[0] + main_radius_x + side_stone_radius
+        right_center_x = CENTER[0] + h_offset
         rx2, ry2 = draw_side_stone(draw, side_stone_shape, right_center_x, CENTER[1], side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='left')
         draw_prongs(draw, right_center_x, CENTER[1], rx2, ry2, band_color, base_size_px=base_size_px)
         
-        # Prongs for the main stone in a three-stone setting
         draw_prongs(draw, CENTER[0], CENTER[1], main_radius_x, main_radius_y, band_color, base_size_px=base_size_px)
         
     elif "seven_stone" in setting_key:
@@ -382,39 +423,36 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
         side_stone_radius = max(3, int(base_size_px / 6.0))
         buffer = 1
         
-        # --- Left Cluster (3 stones) ---
-        left_1_x = CENTER[0] - main_radius_x - side_stone_radius
-        left_1_y = CENTER[1] - side_stone_radius - buffer 
+        h_offset_1 = main_radius_x + side_stone_radius
+        v_offset_1 = side_stone_radius + buffer
+        h_offset_2 = h_offset_1 + (side_stone_radius * 2)
+
+        # Left Cluster
+        left_1_x, left_1_y = CENTER[0] - h_offset_1, CENTER[1] - v_offset_1
         rx1, ry1 = draw_side_stone(draw, shape_1, left_1_x, left_1_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='right')
         draw_prongs(draw, left_1_x, left_1_y, rx1, ry1, band_color, base_size_px=base_size_px)
         
-        left_2_x = CENTER[0] - main_radius_x - side_stone_radius
-        left_2_y = CENTER[1] + side_stone_radius + buffer
+        left_2_x, left_2_y = CENTER[0] - h_offset_1, CENTER[1] + v_offset_1
         rx2, ry2 = draw_side_stone(draw, shape_2, left_2_x, left_2_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='right')
         draw_prongs(draw, left_2_x, left_2_y, rx2, ry2, band_color, base_size_px=base_size_px)
         
-        left_3_x = left_1_x - (side_stone_radius * 2)
-        left_3_y = CENTER[1]
+        left_3_x, left_3_y = CENTER[0] - h_offset_2, CENTER[1]
         rx3, ry3 = draw_side_stone(draw, shape_3, left_3_x, left_3_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='left')
         draw_prongs(draw, left_3_x, left_3_y, rx3, ry3, band_color, base_size_px=base_size_px)
         
-        # --- Right Cluster (3 stones) ---
-        right_1_x = CENTER[0] + main_radius_x + side_stone_radius
-        right_1_y = CENTER[1] - side_stone_radius - buffer
+        # Right Cluster
+        right_1_x, right_1_y = CENTER[0] + h_offset_1, CENTER[1] - v_offset_1
         rx4, ry4 = draw_side_stone(draw, shape_1, right_1_x, right_1_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='left')
         draw_prongs(draw, right_1_x, right_1_y, rx4, ry4, band_color, base_size_px=base_size_px)
         
-        right_2_x = CENTER[0] + main_radius_x + side_stone_radius
-        right_2_y = CENTER[1] + side_stone_radius + buffer
+        right_2_x, right_2_y = CENTER[0] + h_offset_1, CENTER[1] + v_offset_1
         rx5, ry5 = draw_side_stone(draw, shape_2, right_2_x, right_2_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='left')
         draw_prongs(draw, right_2_x, right_2_y, rx5, ry5, band_color, base_size_px=base_size_px)
 
-        right_3_x = right_1_x + (side_stone_radius * 2)
-        right_3_y = CENTER[1]
+        right_3_x, right_3_y = CENTER[0] + h_offset_2, CENTER[1]
         rx6, ry6 = draw_side_stone(draw, shape_3, right_3_x, right_3_y, side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='right')
         draw_prongs(draw, right_3_x, right_3_y, rx6, ry6, band_color, base_size_px=base_size_px)
         
-        # Prongs for main stone
         draw_prongs(draw, CENTER[0], CENTER[1], main_radius_x, main_radius_y, band_color, base_size_px=base_size_px)
     # === END OF CORRECTED BLOCK D ===
 
