@@ -1,209 +1,240 @@
 import streamlit as st
-from PIL import Image
-import os
+from PIL import Image, ImageDraw
 
 # --- Page Configuration ---
-# Set the layout to wide and define the page title
-st.set_page_config(layout="wide", page_title="מעצב טבעות")
+st.set_page_config(layout="wide", page_title="Ring Sketch Designer")
 
 # --- Main Title ---
-st.title("💎 מעצב טבעות היהלום האישי שלך")
-st.write("בחר את המרכיבים בסרגל הצד כדי לעצב את טבעת החלומות שלך.")
+st.title("Ring Sketch Designer")
+st.write("Select the components in the sidebar to sketch your dream ring.")
 
 # --- Constants & Options ---
-
-# List of available diamond shapes
 DIAMOND_SHAPES = [
-    "Round (עגול)", "Princess (נסיכה)", "Oval (אובל)", "Emerald (אמרלד)",
-    "Cushion (קושן)", "Pear (אגס)", "Marquise (מרקיזה)",
-    "Asscher (אשר)", "Radiant (רדיאנט)"
+    "Round", "Princess", "Oval", "Emerald",
+    "Cushion", "Pear", "Marquise",
+    "Asscher", "Radiant"
 ]
-
-# Dictionary for metal types (Display Name -> file_key)
 METALS = {
-    "זהב צהוב (14K)": "yellow_gold",
-    "זהב לבן (14K)": "white_gold",
-    "פלטינה": "platinum",
-    "רוז גולד (14K)": "rose_gold"
+    "Yellow Gold (14K)": "yellow_gold",
+    "White Gold (14K)": "white_gold",
+    "Platinum": "platinum",
+    "Rose Gold (14K)": "rose_gold"
+}
+SETTINGS = {
+    "Solitaire (Single Diamond)": "solitaire",
+    "Halo (Center diamond surrounded by small ones)": "halo",
+    "Three-Stone": "three_stone"
 }
 
-# Dictionary for setting types (Display Name -> file_key)
-SETTINGS = {
-    "סוליטר (יהלום בודד)": "solitaire",
-    "הילה (Halo - יהלום מרכזי מוקף קטנים)": "halo",
-    "שלושה יהלומים (Three-Stone)": "three_stone"
+# --- NEW: Color definitions for drawing ---
+METAL_COLORS_RGB = {
+    "yellow_gold": (212, 175, 55),
+    "white_gold": (220, 220, 220),
+    "platinum": (205, 205, 205),
+    "rose_gold": (230, 180, 170)
 }
+DIAMOND_OUTLINE = (50, 50, 50) # Dark grey outline
+DIAMOND_FILL = (245, 245, 245)  # Very light grey fill
 
 # --- Sidebar Widgets (User Input) ---
-st.sidebar.header("בחר את מרכיבי הטבעת")
-
-# 1. Diamond Shape Selection
-selected_shape = st.sidebar.selectbox("1. בחר צורת יהלום:", DIAMOND_SHAPES)
-
-# 2. Carat Size Selection
-selected_carat = st.sidebar.slider("2. בחר גודל (קראט):",
+st.sidebar.header("Select Your Ring Components")
+selected_shape = st.sidebar.selectbox("1. Select Diamond Shape:", DIAMOND_SHAPES)
+selected_carat = st.sidebar.slider("2. Select Size (Carat):",
                                    min_value=0.5, max_value=3.0,
                                    value=1.0, step=0.1)
-
-# 3. Setting Selection
-selected_setting = st.sidebar.selectbox("3. בחר סוג שיבוץ:", list(SETTINGS.keys()))
-
-# 4. Metal Selection
-selected_metal = st.sidebar.selectbox("4. בחר סוג מתכת:", list(METALS.keys()))
-
-# 5. Optional "4 C's" for pricing
-st.sidebar.subheader("איכות היהלום (4 C's)")
-selected_color = st.sidebar.select_slider("צבע (Color):",
+selected_setting = st.sidebar.selectbox("3. Select Setting Type:", list(SETTINGS.keys()))
+selected_metal = st.sidebar.selectbox("4. Select Metal Type:", list(METALS.keys()))
+selected_color = st.sidebar.select_slider("Color:",
                                           options=["J", "I", "H", "G", "F", "E", "D"],
                                           value="G")
-selected_clarity = st.sidebar.select_slider("ניקיון (Clarity):",
+selected_clarity = st.sidebar.select_slider("Clarity:",
                                             options=["SI2", "SI1", "VS2", "VS1", "VVS2", "VVS1", "IF", "FL"],
                                             value="VS1")
 
 # --- Price Calculation Logic (Demo) ---
-
-# Base price for a 1-carat, G-color, VS1-clarity round diamond
-BASE_DIAMOND_PRICE_PER_CARAT = 5000  # $
-
-# Price multipliers for different shapes
+BASE_DIAMOND_PRICE_PER_CARAT = 5000
+# IMPORTANT: Keys must match the new English strings in DIAMOND_SHAPES
 SHAPE_MULTIPLIERS = {
-    "Round (עגול)": 1.0, "Princess (נסיכה)": 0.9, "Oval (אובל)": 0.95,
-    "Emerald (אמרלד)": 0.9, "Cushion (קושן)": 0.85, "Pear (אגס)": 0.9,
-    "Marquise (מרקיזה)": 0.8, "Asscher (אשר)": 0.85, "Radiant (רדיאנט)": 0.88
+    "Round": 1.0, "Princess": 0.9, "Oval": 0.95,
+    "Emerald": 0.9, "Cushion": 0.85, "Pear": 0.9,
+    "Marquise": 0.8, "Asscher": 0.85, "Radiant": 0.88
 }
-
-# Price multipliers for color grades
 COLOR_MULTIPLIERS = {"J": 0.8, "I": 0.9, "H": 1.0, "G": 1.1, "F": 1.3, "E": 1.5, "D": 2.0}
-
-# Price multipliers for clarity grades
 CLARITY_MULTIPLIERS = {"SI2": 0.8, "SI1": 0.9, "VS2": 1.0, "VS1": 1.1, "VVS2": 1.3, "VVS1": 1.5, "IF": 1.8, "FL": 2.2}
-
-# Base prices for metals and settings
-METAL_BASE_PRICE = {"זהב צהוב (14K)": 500, "זהב לבן (14K)": 550, "פלטינה": 900, "רוז גולד (14K)": 520}
-SETTING_BASE_PRICE = {"סוליטר (יהלום בודד)": 200, "הילה (Halo - יהלום מרכזי מוקף קטנים)": 800, "שלושה יהלומים (Three-Stone)": 600}
+# IMPORTANT: Keys must match the new English strings in METALS
+METAL_BASE_PRICE = {"Yellow Gold (14K)": 500, "White Gold (14K)": 550, "Platinum": 900, "Rose Gold (14K)": 520}
+# IMPORTANT: Keys must match the new English strings in SETTINGS
+SETTING_BASE_PRICE = {"Solitaire (Single Diamond)": 200, "Halo (Center diamond surrounded by small ones)": 800, "Three-Stone": 600}
 
 def calculate_price(shape, carat, color, clarity, metal, setting):
-    """
-    Calculates the estimated price of the ring based on user selections.
-    This is a simplified demo model.
-    """
-    # 1. Calculate diamond price
     base_price = BASE_DIAMOND_PRICE_PER_CARAT * carat
     shape_factor = SHAPE_MULTIPLIERS.get(shape, 1.0)
     color_factor = COLOR_MULTIPLIERS.get(color, 1.0)
     clarity_factor = CLARITY_MULTIPLIERS.get(clarity, 1.0)
-    
     diamond_price = base_price * shape_factor * color_factor * clarity_factor
-    
-    # 2. Calculate setting and metal price
     setting_price = METAL_BASE_PRICE.get(metal, 500) + SETTING_BASE_PRICE.get(setting, 200)
-    
-    # 3. Calculate total price
     total_price = diamond_price + setting_price
     return total_price, diamond_price, setting_price
 
-# --- Image Composition Logic ---
+# --- NEW: Image SKETCHING Logic ---
 
-def create_ring_image(metal_key, setting_key, shape_key, carat):
+def create_ring_sketch(shape, carat, metal_key, setting_key):
     """
-    Composites the ring image from transparent PNG layers.
+    Procedurally draws a 2D sketch of the ring from a top-down view.
     """
-    try:
-        # 1. Load base image (setting + metal)
-        # This assumes you have images like "solitaire_yellow_gold.png"
-        metal_file = METALS[metal_key]
-        setting_file = SETTINGS[setting_key]
-        base_image_path = os.path.join("assets", "settings", f"{setting_file}_{metal_file}.png")
-        
-        # Fallback image if the specific combination doesn't exist
-        if not os.path.exists(base_image_path):
-            base_image_path = os.path.join("assets", "settings", "solitaire_yellow_gold.png") 
-            
-        base_image = Image.open(base_image_path).convert("RGBA")
-        
-        # 2. Load diamond image
-        # Converts "Round (עגול)" to "round"
-        shape_file = shape_key.split(" ")[0].lower() 
-        diamond_image_path = os.path.join("assets", "shapes", f"{shape_file}.png")
-        
-        # Fallback diamond image
-        if not os.path.exists(diamond_image_path):
-            diamond_image_path = os.path.join("assets", "shapes", "round.png") 
-            
-        diamond_image = Image.open(diamond_image_path).convert("RGBA")
+    IMG_SIZE = 500
+    CENTER = (IMG_SIZE // 2, IMG_SIZE // 2)
+    
+    # 1. Create a blank white canvas
+    canvas = Image.new("RGB", (IMG_SIZE, IMG_SIZE), "white")
+    draw = ImageDraw.Draw(canvas)
+    
+    # 2. Get colors and dynamic sizes
+    band_color = METAL_COLORS_RGB.get(metal_key, "grey")
+    
+    # This is the main logic: convert carat to pixel size
+    # This scaling factor (80) needs calibration to look good.
+    base_size_px = int(carat * 80)
+    half_size = base_size_px // 2
 
-        # 3. Resize diamond based on carat size (simplified scaling)
-        base_width, base_height = diamond_image.size
-        # Simple scaling factor - you may need to adjust this formula
-        scale_factor = (carat / 1.0) * 0.5 + 0.5  
-        new_size = (int(base_width * scale_factor), int(base_height * scale_factor))
-        diamond_image = diamond_image.resize(new_size, Image.LANCZOS)
-        
-        # 4. Composite the images
-        # These coordinates are estimates. You MUST calibrate (x, y)
-        # for each setting type for accurate placement.
-        paste_x = (base_image.width - diamond_image.width) // 2
-        paste_y = (base_image.height - diamond_image.height) // 2 - 50 # Adjust as needed
-        
-        # Paste the diamond onto the base image using its alpha channel as a mask
-        base_image.paste(diamond_image, (paste_x, paste_y), diamond_image)
-        
-        return base_image
+    # 3. Draw the Ring Band (as a simple thick circle)
+    # The band will be slightly larger than the diamond
+    band_radius = half_size + 15 
+    band_thickness = 10
+    draw.ellipse(
+        [(CENTER[0] - band_radius, CENTER[1] - band_radius),
+         (CENTER[0] + band_radius, CENTER[1] + band_radius)],
+        outline=band_color,
+        width=band_thickness
+    )
+    
+    # 4. Draw the Diamond Shape
+    shape_coords = []
+    
+    if "Round" in shape:
+        shape_coords = [
+            (CENTER[0] - half_size, CENTER[1] - half_size),
+            (CENTER[0] + half_size, CENTER[1] + half_size)
+        ]
+        draw.ellipse(shape_coords, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
+    
+    elif "Princess" in shape:
+        shape_coords = [
+            (CENTER[0] - half_size, CENTER[1] - half_size),
+            (CENTER[0] + half_size, CENTER[1] + half_size)
+        ]
+        draw.rectangle(shape_coords, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
+        # Add simple facets
+        draw.line([(shape_coords[0]), (shape_coords[1])], fill=DIAMOND_OUTLINE)
+        draw.line([(shape_coords[0][0], shape_coords[1][1]), (shape_coords[1][0], shape_coords[0][1])], fill=DIAMOND_OUTLINE)
 
-    except FileNotFoundError as e:
-        st.error(f"Image file not found: {e}. Please check your 'assets' folder.")
-        return Image.new("RGBA", (500, 500), (255, 255, 255, 0)) # Return a blank image on error
-    except Exception as e:
-        st.error(f"Error creating image: {e}")
-        return Image.new("RGBA", (500, 500), (255, 255, 255, 0))
+    elif "Oval" in shape:
+        # Make it taller than it is wide (e.g., 1.4 ratio)
+        oval_height = int(half_size * 1.4)
+        shape_coords = [
+            (CENTER[0] - half_size, CENTER[1] - oval_height),
+            (CENTER[0] + half_size, CENTER[1] + oval_height)
+        ]
+        draw.ellipse(shape_coords, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
+
+    elif "Emerald" in shape:
+        # A rectangle with cut corners (an octagon)
+        cut_size = half_size // 4 # How much to cut off the corners
+        points = [
+            (CENTER[0] - half_size + cut_size, CENTER[1] - half_size), # Top-left
+            (CENTER[0] + half_size - cut_size, CENTER[1] - half_size), # Top-right
+            (CENTER[0] + half_size, CENTER[1] - half_size + cut_size), # Right-top
+            (CENTER[0] + half_size, CENTER[1] + half_size - cut_size), # Right-bottom
+            (CENTER[0] + half_size - cut_size, CENTER[1] + half_size), # Bottom-right
+            (CENTER[0] - half_size + cut_size, CENTER[1] + half_size), # Bottom-left
+            (CENTER[0] - half_size, CENTER[1] + half_size - cut_size), # Left-bottom
+            (CENTER[0] - half_size, CENTER[1] - half_size + cut_size), # Left-top
+        ]
+        draw.polygon(points, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
+
+    else:
+        # Fallback for unimplemented shapes
+        draw.rectangle(
+            [(CENTER[0] - half_size, CENTER[1] - half_size),
+             (CENTER[0] + half_size, CENTER[1] + half_size)],
+            outline="red", width=2
+        )
+        draw.text((10, 10), f"Sketch for '{shape}' not yet implemented.", fill="red")
+
+    # 5. Draw the Setting (Prongs)
+    prong_size = 8
+    half_prong = prong_size // 2
+
+    if "solitaire" in setting_key and shape_coords:
+        if "Round" in shape or "Princess" in shape:
+            # Simple 4 prongs at the corners
+            coords = shape_coords
+            # Top-left prong
+            draw.ellipse([(coords[0][0]-half_prong, coords[0][1]-half_prong), (coords[0][0]+half_prong, coords[0][1]+half_prong)], fill=band_color)
+            # Top-right prong
+            draw.ellipse([(coords[1][0]-half_prong, coords[0][1]-half_prong), (coords[1][0]+half_prong, coords[0][1]+half_prong)], fill=band_color)
+            # Bottom-left prong
+            draw.ellipse([(coords[0][0]-half_prong, coords[1][1]-half_prong), (coords[0][0]+half_prong, coords[1][1]+half_prong)], fill=band_color)
+            # Bottom-right prong
+            draw.ellipse([(coords[1][0]-half_prong, coords[1][1]-half_prong), (coords[1][0]+half_prong, coords[1][1]+half_prong)], fill=band_color)
+            
+    elif "halo" in setting_key and shape_coords:
+        # Draw a "halo" (another border) around the main stone
+        halo_padding = 10
+        if "Round" in shape:
+            draw.ellipse(
+                [(shape_coords[0][0] - halo_padding, shape_coords[0][1] - halo_padding),
+                 (shape_coords[1][0] + halo_padding, shape_coords[1][1] + halo_padding)],
+                outline=band_color, width=8
+            )
+        # (You would add 'elif' for other halo shapes here)
+            
+    return canvas
 
 # --- Main App Logic ---
 
-# 1. Calculate the price based on sidebar selections
+# 1. Calculate price
 total_price, diamond_price, setting_price = calculate_price(
     selected_shape, selected_carat, selected_color,
     selected_clarity, selected_metal, selected_setting
 )
 
-# 2. Create the final composite image
-#    This line MUST come AFTER the sidebar selections and BEFORE st.image
-final_ring_image = create_ring_image(
-    selected_metal, 
-    selected_setting, 
-    selected_shape, 
-    selected_carat
+# 2. Generate the sketch
+final_ring_image = create_ring_sketch(
+    selected_shape,
+    selected_carat,
+    METALS[selected_metal],       # Pass the key (e.g., "yellow_gold")
+    SETTINGS[selected_setting]    # Pass the key (e.g., "solitaire")
 )
 
 # 3. Display the results
-st.sidebar.success("הטבעת שלך מוכנה!")
+st.sidebar.success("Your sketch is ready!")
 
 # --- Display Area (Main Page) ---
+# (This section is identical to the previous version)
 
-# Split the main area into two columns
 col1, col2 = st.columns(2)
 
-# Column 1: The Ring Image
 with col1:
-    st.header("הטבעת שלך:")
-    # This is the line that caused the NameError, it should now work
+    st.header("Your Sketch:")
     st.image(final_ring_image, use_column_width=True)
 
-# Column 2: The Price and Details
 with col2:
-    st.header(f"הערכת מחיר: ${total_price:,.0f}")
-    st.subheader("פירוט הבחירות שלך:")
+    st.header(f"Estimated Price: ${total_price:,.0f}")
+    st.subheader("Your Selections:")
     
     st.markdown(f"""
-    * **צורת יהלום:** {selected_shape}
-    * **משקל (קראט):** {selected_carat}
-    * **צבע:** {selected_color}
-    * **ניקיון:** {selected_clarity}
-    * **שיבוץ:** {selected_setting}
-    * **מתכת:** {selected_metal}
+    * **Diamond Shape:** {selected_shape}
+    * **Carat Weight:** {selected_carat}
+    * **Color:** {selected_color}
+    * **Clarity:** {selected_clarity}
+    * **Setting:** {selected_setting}
+    * **Metal:** {selected_metal}
     """)
     
-    st.subheader("פירוט עלות (דמו):")
+    st.subheader("Cost Breakdown (Demo):")
     st.markdown(f"""
-    * **עלות יהלום:** ${diamond_price:,.0f}
-    * **עלות שיבוץ ומתכת:** ${setting_price:,.0f}
+    * **Diamond Cost:** ${diamond_price:,.0f}
+    * **Setting & Metal Cost:** ${setting_price:,.0f}
     """)
+
