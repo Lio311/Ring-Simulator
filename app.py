@@ -55,11 +55,9 @@ selected_clarity = st.sidebar.select_slider("Clarity:",
                                             options=["SI2", "SI1", "VS2", "VS1", "VVS2", "VVS1", "IF", "FL"],
                                             value="VS1")
 
-# UPDATED ORDER: Metal and Certificate are now before Setting
 selected_metal = st.sidebar.selectbox("5. Select Metal Type:", list(METALS.keys()))
 selected_certificate = st.sidebar.selectbox("6. Select Certificate:", CERTIFICATE_TYPES)
 
-# UPDATED ORDER: Setting is now last, followed by side stone options
 selected_setting = st.sidebar.selectbox("7. Select Setting Type:", list(SETTINGS.keys()))
 
 # --- Side stone selection (now follows Setting) ---
@@ -175,12 +173,14 @@ def draw_side_stone(draw, shape, center_x, center_y, radius, color, outline, ori
             outline=outline, fill=color, width=2
         )
     elif shape == "Marquise":
-        h_radius = radius if orientation in ['left', 'right'] else max(1, int(radius * 0.5))
-        v_radius = radius if orientation in ['up', 'down'] else max(1, int(radius * 0.5))
+        # Default vertical orientation (for main stone)
+        h_radius = max(1, int(radius * 0.8)) # UPDATED: "Fatter" marquise (was 0.5)
+        v_radius = int(radius * 1.5)
         
         if orientation == 'left' or orientation == 'right':
+            # Horizontal orientation (for side stones)
             h_radius = int(radius * 1.5)
-            v_radius = max(1, radius // 2)
+            v_radius = max(1, int(radius * 0.8)) # UPDATED: "Fatter" marquise (was 0.5)
         
         h_radius_out = h_radius
         v_radius_out = v_radius
@@ -247,7 +247,7 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
         main_stone_coords = [(CENTER[0] - main_stone_extents['half_width'], CENTER[1] - main_stone_extents['half_height']), (CENTER[0] + main_stone_extents['half_width'], CENTER[1] + main_stone_extents['half_height'])]
     elif "Marquise" in shape:
         main_stone_extents['half_height'] = int(half_size * 1.5)
-        main_stone_extents['half_width'] = max(1, half_size // 2)
+        main_stone_extents['half_width'] = max(1, int(half_size * 0.8)) # UPDATED: "Fatter" marquise (was 0.5)
         main_stone_coords = [(CENTER[0] - main_stone_extents['half_width'], CENTER[1] - main_stone_extents['half_height']), (CENTER[0] + main_stone_extents['half_width'], CENTER[1] + main_stone_extents['half_height'])]
 
     side_stone_radius = 0 # Initialize
@@ -274,7 +274,9 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
     if "three_stone" in setting_key:
         setting_half_width = max(main_stone_extents['half_width'] + side_stone_radius*2, setting_half_width)
     if "seven_stone" in setting_key:
-        setting_half_width = max(main_stone_extents['half_width'] + side_stone_radius*4, setting_half_width)
+        # Calculate cluster width
+        cluster_width = side_stone_radius * 4 # Approx
+        setting_half_width = max(main_stone_extents['half_width'] + cluster_width, setting_half_width)
 
         
     band_end_x_left = CENTER[0] - setting_half_width
