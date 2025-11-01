@@ -17,27 +17,22 @@ DIAMOND_SHAPES = [
 METALS = {
     "Yellow Gold (14K)": "yellow_gold",
     "White Gold (14K)": "white_gold",
-    # Platinum removed
     "Rose Gold (14K)": "rose_gold"
 }
-# UPDATED: More specific setting options
+# UPDATED: Setting options for Seven-Stone
 SETTINGS = {
     "Solitaire (Single Diamond)": "solitaire",
     "Halo": "halo",
     "Three-Stone (Round Sides)": "three_stone",
-    "Five-Stone (Round Sides)": "five_stone"
+    "Seven-Stone (Round Sides)": "seven_stone" # Changed from Five-Stone
 }
-# NEW: Certificate Types
 CERTIFICATE_TYPES = ["GIA", "CGL"]
-
-# NEW: Currency Conversion
 USD_TO_ILS_RATE = 3.7 # Example exchange rate
 
 # --- Color definitions for drawing ---
 METAL_COLORS_RGB = {
     "yellow_gold": (212, 175, 55),
     "white_gold": (220, 220, 220),
-    # platinum removed
     "rose_gold": (230, 180, 170)
 }
 DIAMOND_OUTLINE = (50, 50, 50) # Dark grey outline
@@ -51,7 +46,6 @@ selected_carat = st.sidebar.slider("2. Select Size (Carat):",
                                    value=1.0, step=0.1)
 selected_setting = st.sidebar.selectbox("3. Select Setting Type:", list(SETTINGS.keys()))
 selected_metal = st.sidebar.selectbox("4. Select Metal Type:", list(METALS.keys()))
-# NEW: Certificate selection
 selected_certificate = st.sidebar.selectbox("5. Select Certificate:", CERTIFICATE_TYPES)
 
 st.sidebar.subheader("Diamond Quality")
@@ -64,7 +58,6 @@ selected_clarity = st.sidebar.select_slider("Clarity:",
 
 # --- Price Calculation Logic (Demo) ---
 BASE_DIAMOND_PRICE_PER_CARAT = 5000 # Base price in USD
-# IMPORTANT: Keys must match the new English strings in DIAMOND_SHAPES
 SHAPE_MULTIPLIERS = {
     "Round": 1.0, "Princess": 0.9, "Oval": 0.95,
     "Emerald": 0.9, "Cushion": 0.85, "Pear": 0.9,
@@ -72,20 +65,17 @@ SHAPE_MULTIPLIERS = {
 }
 COLOR_MULTIPLIERS = {"J": 0.8, "I": 0.9, "H": 1.0, "G": 1.1, "F": 1.3, "E": 1.5, "D": 2.0}
 CLARITY_MULTIPLIERS = {"SI2": 0.8, "SI1": 0.9, "VS2": 1.0, "VS1": 1.1, "VVS2": 1.3, "VVS1": 1.5, "IF": 1.8, "FL": 2.2}
-# IMPORTANT: Keys must match the new English strings in METALS
 METAL_BASE_PRICE = {"Yellow Gold (14K)": 500, "White Gold (14K)": 550, "Rose Gold (14K)": 520} # In USD
-# UPDATED: Prices for new settings
+# UPDATED: Price for Seven-Stone
 SETTING_BASE_PRICE = {
     "Solitaire (Single Diamond)": 200,
     "Halo": 800,
     "Three-Stone (Round Sides)": 600,
-    "Five-Stone (Round Sides)": 1000
+    "Seven-Stone (Round Sides)": 1200 # Updated price for 7 stones
 } # In USD
-# NEW: Certificate price factor
-CERTIFICATE_MULTIPLIERS = {"GIA": 1.15, "CGL": 1.0} # GIA costs 15% more
+CERTIFICATE_MULTIPLIERS = {"GIA": 1.15, "CGL": 1.0}
 
 def calculate_price(shape, carat, color, clarity, metal, setting, certificate):
-    # 1. Calculate Diamond Price in USD
     base_price = BASE_DIAMOND_PRICE_PER_CARAT * carat
     shape_factor = SHAPE_MULTIPLIERS.get(shape, 1.0)
     color_factor = COLOR_MULTIPLIERS.get(color, 1.0)
@@ -93,21 +83,16 @@ def calculate_price(shape, carat, color, clarity, metal, setting, certificate):
     cert_factor = CERTIFICATE_MULTIPLIERS.get(certificate, 1.0)
     
     diamond_price_usd = base_price * shape_factor * color_factor * clarity_factor * cert_factor
-    
-    # 2. Calculate Setting Price in USD
     setting_price_usd = METAL_BASE_PRICE.get(metal, 500) + SETTING_BASE_PRICE.get(setting, 200)
-    
-    # 3. Calculate Total Price in USD
     total_price_usd = diamond_price_usd + setting_price_usd
     
-    # 4. Convert all prices to ILS
     total_price_ils = total_price_usd * USD_TO_ILS_RATE
     diamond_price_ils = diamond_price_usd * USD_TO_ILS_RATE
     setting_price_ils = setting_price_usd * USD_TO_ILS_RATE
     
     return total_price_ils, diamond_price_ils, setting_price_ils
 
-# --- Image SKETCHING Logic (NEW: Top-Down "On-Hand" View) ---
+# --- Image SKETCHING Logic (Top-Down "On-Hand" View) ---
 
 def create_ring_sketch(shape, carat, metal_key, setting_key):
     """
@@ -117,20 +102,16 @@ def create_ring_sketch(shape, carat, metal_key, setting_key):
     IMG_SIZE = 500
     CENTER = (IMG_SIZE // 2, IMG_SIZE // 2)
     
-    # 1. Create a blank white canvas
     canvas = Image.new("RGB", (IMG_SIZE, IMG_SIZE), "white")
     draw = ImageDraw.Draw(canvas)
     
-    # 2. Get colors and dynamic sizes
     band_color = METAL_COLORS_RGB.get(metal_key, "grey")
     
-    # This is the main logic: convert carat to pixel size
-    base_size_px = int(carat * 80)
+    # UPDATED: Smaller overall scale for diamonds
+    base_size_px = int(carat * 50) # Reduced from 80 to 50
     half_size = base_size_px // 2
     
-    # This will store the bounding box of the main stone
     main_stone_coords = [] 
-    # This will track the total width of all stones for drawing the band
     total_setting_width = base_size_px 
 
     # --- 3. Draw Main Diamond (FIRST) ---
@@ -147,12 +128,10 @@ def create_ring_sketch(shape, carat, metal_key, setting_key):
             (CENTER[0] + half_size, CENTER[1] + half_size)
         ]
         draw.rectangle(main_stone_coords, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
-        # Add simple facets
         draw.line([(main_stone_coords[0]), (main_stone_coords[1])], fill=DIAMOND_OUTLINE)
         draw.line([(main_stone_coords[0][0], main_stone_coords[1][1]), (main_stone_coords[1][0], main_stone_coords[0][1])], fill=DIAMOND_OUTLINE)
 
     elif "Oval" in shape:
-        # Make it taller than it is wide (e.g., 1.4 ratio)
         oval_height = int(half_size * 1.4)
         main_stone_coords = [
             (CENTER[0] - half_size, CENTER[1] - oval_height),
@@ -161,23 +140,21 @@ def create_ring_sketch(shape, carat, metal_key, setting_key):
         draw.ellipse(main_stone_coords, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
 
     elif "Emerald" in shape:
-        # A rectangle with cut corners (an octagon)
         cut_size = half_size // 4
         points = [
-            (CENTER[0] - half_size + cut_size, CENTER[1] - half_size), # Top-left
-            (CENTER[0] + half_size - cut_size, CENTER[1] - half_size), # Top-right
-            (CENTER[0] + half_size, CENTER[1] - half_size + cut_size), # Right-top
-            (CENTER[0] + half_size, CENTER[1] + half_size - cut_size), # Right-bottom
-            (CENTER[0] + half_size - cut_size, CENTER[1] + half_size), # Bottom-right
-            (CENTER[0] - half_size + cut_size, CENTER[1] + half_size), # Bottom-left
-            (CENTER[0] - half_size, CENTER[1] + half_size - cut_size), # Left-bottom
-            (CENTER[0] - half_size, CENTER[1] - half_size + cut_size), # Left-top
+            (CENTER[0] - half_size + cut_size, CENTER[1] - half_size),
+            (CENTER[0] + half_size - cut_size, CENTER[1] - half_size),
+            (CENTER[0] + half_size, CENTER[1] - half_size + cut_size),
+            (CENTER[0] + half_size, CENTER[1] + half_size - cut_size),
+            (CENTER[0] + half_size - cut_size, CENTER[1] + half_size),
+            (CENTER[0] - half_size + cut_size, CENTER[1] + half_size),
+            (CENTER[0] - half_size, CENTER[1] + half_size - cut_size),
+            (CENTER[0] - half_size, CENTER[1] - half_size + cut_size),
         ]
         main_stone_coords = [(CENTER[0] - half_size, CENTER[1] - half_size), (CENTER[0] + half_size, CENTER[1] + half_size)] # Approx
         draw.polygon(points, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
 
     else:
-        # Fallback for unimplemented shapes
         main_stone_coords = [
             (CENTER[0] - half_size, CENTER[1] - half_size),
              (CENTER[0] + half_size, CENTER[1] + half_size)
@@ -188,21 +165,15 @@ def create_ring_sketch(shape, carat, metal_key, setting_key):
     # --- 4. Draw the Setting (Prongs, Halo, Side Stones) ---
     
     if "solitaire" in setting_key and main_stone_coords:
-        # Simple 4 prongs at the corners
         coords = main_stone_coords
         prong_size = 8
         half_prong = prong_size // 2
-        # Top-left prong
         draw.ellipse([(coords[0][0]-half_prong, coords[0][1]-half_prong), (coords[0][0]+half_prong, coords[0][1]+half_prong)], fill=band_color)
-        # Top-right prong
         draw.ellipse([(coords[1][0]-half_prong, coords[0][1]-half_prong), (coords[1][0]+half_prong, coords[0][1]+half_prong)], fill=band_color)
-        # Bottom-left prong
         draw.ellipse([(coords[0][0]-half_prong, coords[1][1]-half_prong), (coords[0][0]+half_prong, coords[1][1]+half_prong)], fill=band_color)
-        # Bottom-right prong
         draw.ellipse([(coords[1][0]-half_prong, coords[1][1]-half_prong), (coords[1][0]+half_prong, coords[1][1]+half_prong)], fill=band_color)
             
     elif "halo" in setting_key and main_stone_coords:
-        # Draw a "halo" (another border) around the main stone
         halo_padding = 10
         coords = main_stone_coords
         if "Round" in shape:
@@ -211,13 +182,13 @@ def create_ring_sketch(shape, carat, metal_key, setting_key):
                  (coords[1][0] + halo_padding, coords[1][1] + halo_padding)],
                 outline=band_color, width=8
             )
-            total_setting_width += (halo_padding * 2) # Add to total width
-        # (You would add 'elif' for other halo shapes here)
+            total_setting_width += (halo_padding * 2)
             
     elif "three_stone" in setting_key and main_stone_coords:
-        side_stone_radius = base_size_px // 4 # Smaller side stones
-        gap = 5
-        
+        # UPDATED: Smaller side stones, adjusted gap
+        side_stone_radius = base_size_px // 3.5 # Adjusted from 4
+        gap = base_size_px // 8 # Adjusted gap
+
         # Left stone
         left_center_x = CENTER[0] - half_size - gap - side_stone_radius
         draw.ellipse(
@@ -233,15 +204,13 @@ def create_ring_sketch(shape, carat, metal_key, setting_key):
              (right_center_x + side_stone_radius, CENTER[1] + side_stone_radius)],
             outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2
         )
-        
-        # Update total width
         total_setting_width += (side_stone_radius * 4) + (gap * 2)
 
-    elif "five_stone" in setting_key and main_stone_coords:
-        side_stone_radius = base_size_px // 5 # Even smaller
-        gap = 4
+    elif "seven_stone" in setting_key and main_stone_coords: # UPDATED: Logic for Seven-Stone
+        side_stone_radius = base_size_px // 4.5 # Adjusted side stone size
+        gap = base_size_px // 10 # Adjusted gap
 
-        # --- Left side ---
+        # --- Left side (3 stones) ---
         # Inner left stone
         left_1_x = CENTER[0] - half_size - gap - side_stone_radius
         draw.ellipse(
@@ -249,15 +218,22 @@ def create_ring_sketch(shape, carat, metal_key, setting_key):
              (left_1_x + side_stone_radius, CENTER[1] + side_stone_radius)],
             outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2
         )
-        # Outer left stone
+        # Middle left stone
         left_2_x = left_1_x - (side_stone_radius * 2) - gap
         draw.ellipse(
             [(left_2_x - side_stone_radius, CENTER[1] - side_stone_radius),
              (left_2_x + side_stone_radius, CENTER[1] + side_stone_radius)],
             outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2
         )
+        # Outer left stone
+        left_3_x = left_2_x - (side_stone_radius * 2) - gap
+        draw.ellipse(
+            [(left_3_x - side_stone_radius, CENTER[1] - side_stone_radius),
+             (left_3_x + side_stone_radius, CENTER[1] + side_stone_radius)],
+            outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2
+        )
         
-        # --- Right side ---
+        # --- Right side (3 stones) ---
         # Inner right stone
         right_1_x = CENTER[0] + half_size + gap + side_stone_radius
         draw.ellipse(
@@ -265,31 +241,34 @@ def create_ring_sketch(shape, carat, metal_key, setting_key):
              (right_1_x + side_stone_radius, CENTER[1] + side_stone_radius)],
             outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2
         )
-        # Outer right stone
+        # Middle right stone
         right_2_x = right_1_x + (side_stone_radius * 2) + gap
         draw.ellipse(
             [(right_2_x - side_stone_radius, CENTER[1] - side_stone_radius),
              (right_2_x + side_stone_radius, CENTER[1] + side_stone_radius)],
             outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2
         )
+        # Outer right stone
+        right_3_x = right_2_x + (side_stone_radius * 2) + gap
+        draw.ellipse(
+            [(right_3_x - side_stone_radius, CENTER[1] - side_stone_radius),
+             (right_3_x + side_stone_radius, CENTER[1] + side_stone_radius)],
+            outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2
+        )
         
-        # Update total width
-        total_setting_width += (side_stone_radius * 8) + (gap * 4)
+        # Update total width (1 main stone + 6 side stones)
+        total_setting_width += (side_stone_radius * 12) + (gap * 6) # 6 side stones diameter + 6 gaps
             
     # --- 5. Draw the Ring Band "Shoulders" (LAST) ---
-    # This is the "top-down on narrow part" view
     band_thickness = 12
     band_y_start = CENTER[1] - (band_thickness // 2)
     band_y_end = CENTER[1] + (band_thickness // 2)
 
-    # Calculate where the band should stop, based on the total width of all stones
     setting_half_width = total_setting_width // 2
     band_end_x_left = CENTER[0] - setting_half_width
     band_end_x_right = CENTER[0] + setting_half_width
 
-    # --- FIX ---
     # Clamp the values to be within the canvas boundaries (0 to IMG_SIZE).
-    # This prevents the ValueError if the setting is wider than the canvas.
     band_end_x_left = max(0, band_end_x_left)
     band_end_x_right = min(IMG_SIZE, band_end_x_right)
 
@@ -312,15 +291,15 @@ def create_ring_sketch(shape, carat, metal_key, setting_key):
 total_price, diamond_price, setting_price = calculate_price(
     selected_shape, selected_carat, selected_color,
     selected_clarity, selected_metal, selected_setting,
-    selected_certificate # Pass the new variable
+    selected_certificate
 )
 
 # 2. Generate the sketch
 final_ring_image = create_ring_sketch(
     selected_shape,
     selected_carat,
-    METALS[selected_metal],       # Pass the key (e.g., "yellow_gold")
-    SETTINGS[selected_setting]    # Pass the key (e.g., "solitaire")
+    METALS[selected_metal],
+    SETTINGS[selected_setting]
 )
 
 # 3. Display the results
@@ -334,7 +313,6 @@ with col1:
     st.image(final_ring_image, use_column_width=True)
 
 with col2:
-    # Updated to show ILS (₪)
     st.header(f"Estimated Price: ₪{total_price:,.0f}")
     st.subheader("Your Selections:")
     
@@ -349,10 +327,8 @@ with col2:
     """)
     
     st.subheader("Cost Breakdown (Demo):")
-    # Updated to show ILS (₪)
     st.markdown(f"""
     * **Diamond Cost:** ₪{diamond_price:,.0f}
     * **Setting & Metal Cost:** ₪{setting_price:,.0f}
     """)
-
 
