@@ -287,6 +287,12 @@ def create_ring_sketch(shape, carat, metal_key, setting_key):
     band_end_x_left = CENTER[0] - setting_half_width
     band_end_x_right = CENTER[0] + setting_half_width
 
+    # --- FIX ---
+    # Clamp the values to be within the canvas boundaries (0 to IMG_SIZE).
+    # This prevents the ValueError if the setting is wider than the canvas.
+    band_end_x_left = max(0, band_end_x_left)
+    band_end_x_right = min(IMG_SIZE, band_end_x_right)
+
     # Left shoulder
     draw.rectangle(
         [(0, band_y_start), (band_end_x_left, band_y_end)],
@@ -348,4 +354,5 @@ with col2:
     * **Diamond Cost:** ₪{diamond_price:,.0f}
     * **Setting & Metal Cost:** ₪{setting_price:,.0f}
     """)
+
 
