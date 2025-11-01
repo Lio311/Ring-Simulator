@@ -43,17 +43,17 @@ DIAMOND_FILL = (245, 245, 245)
 st.sidebar.header("Select Your Ring Components")
 selected_shape = st.sidebar.selectbox("1. Select Diamond Shape:", DIAMOND_SHAPES)
 selected_carat = st.sidebar.slider("2. Select Size (Carat):",
-                                   min_value=0.5, max_value=3.0,
-                                   value=1.0, step=0.1)
+                                    min_value=0.5, max_value=3.0,
+                                    value=1.0, step=0.1)
 selected_diamond_type = st.sidebar.selectbox("3. Select Diamond Type:", DIAMOND_TYPES)
 
 st.sidebar.subheader("4. Diamond Quality")
 selected_color = st.sidebar.select_slider("Color:",
-                                          options=["J", "I", "H", "G", "F", "E", "D"],
-                                          value="G")
+                                         options=["J", "I", "H", "G", "F", "E", "D"],
+                                         value="G")
 selected_clarity = st.sidebar.select_slider("Clarity:",
-                                            options=["SI2", "SI1", "VS2", "VS1", "VVS2", "VVS1", "IF", "FL"],
-                                            value="VS1")
+                                           options=["SI2", "SI1", "VS2", "VS1", "VVS2", "VVS1", "IF", "FL"],
+                                           value="VS1")
 
 selected_metal = st.sidebar.selectbox("5. Select Metal Type:", list(METALS.keys()))
 selected_certificate = st.sidebar.selectbox("6. Select Certificate:", CERTIFICATE_TYPES)
@@ -261,97 +261,36 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
         side_stone_radius = max(3, int(base_size_px / 6.0))
         total_setting_width += (side_stone_radius * 6)
             
-# --- Step B: Draw the Ring Band "Shoulders" (FIRST) ---
+    # --- Step B: Draw the Ring Band "Shoulders" (FIRST) ---
+    # === THIS BLOCK IS CORRECTED ===
     band_thickness = 14
     band_y_start = CENTER[1] - (band_thickness // 2)
     band_y_end = CENTER[1] + (band_thickness // 2)
 
-    setting_half_width = (total_setting_width // 2) 
+    # Calculate the effective width of the entire setting (main stone + halo/side stones)
+    # This determines where the band connects to the setting.
+    effective_setting_half_width = total_setting_width // 2
 
-    # Determine the actual connection point for the band, considering the stone's shape
-    # For settings like halo, three-stone, seven-stone, the setting_half_width will be larger
-    # For solitaire, it's just the main stone's width
-    connection_x_left = CENTER[0] - setting_half_width
-    connection_x_right = CENTER[0] + setting_half_width
-
-    # Adjust connection_x based on main stone's actual half_width if solitaire
-    if "solitaire" in setting_key:
-        connection_x_left = CENTER[0] - main_stone_extents['half_width']
-        connection_x_right = CENTER[0] + main_stone_extents['half_width']
-    
-    # Ensure band doesn't go off canvas
-    band_start_x_left = max(0, connection_x_left - band_thickness) # extend a bit for curve
-    band_start_x_right = min(IMG_SIZE, connection_x_right + band_thickness) # extend a bit for curve
-
-    # Draw the main band rectangles (away from the stone)
+    # Draw the main parts of the band
     draw.rectangle(
-        [(0, band_y_start), (connection_x_left - band_thickness, band_y_end)],
+        [(0, band_y_start), (CENTER[0] - effective_setting_half_width, band_y_end)],
         fill=band_color
     )
     draw.rectangle(
-        [(connection_x_right + band_thickness, band_y_start), (IMG_SIZE, band_y_end)],
+        [(CENTER[0] + effective_setting_half_width, band_y_start), (IMG_SIZE, band_y_end)],
         fill=band_color
     )
 
-    # Now, draw the connecting "shoulders" with curves if necessary
-    # These connect the main band to the setting/stone
-    if "Round" in shape or "Oval" in shape or "Cushion" in shape:
-        # Use rounded rectangles or ellipses for a smooth connection
-        draw.rounded_rectangle(
-            [(connection_x_left - band_thickness, band_y_start), (connection_x_right + band_thickness, band_y_end)],
-            radius=band_thickness // 2, # Adjust radius for smoother curve
-            fill=band_color
-        )
-    elif "Princess" in shape or "Emerald" in shape or "Radiant" in shape or "Asscher" in shape:
-        # For square/rectangular shapes, a straight connection is appropriate
+    # For settings that aren't solitaire, draw a connecting piece that acts as the "basket" or base for the setting
+    # This will blend the main band into the setting structure.
+    if setting_key in ["halo", "three_stone", "seven_stone"]:
         draw.rectangle(
-            [(connection_x_left - band_thickness, band_y_start), (connection_x_right + band_thickness, band_y_end)],
+            [(CENTER[0] - effective_setting_half_width, band_y_start),
+             (CENTER[0] + effective_setting_half_width, band_y_end)],
             fill=band_color
         )
-    elif "Pear" in shape:
-        # For pear shape, connect to the wider part
-        points_left = [
-            (CENTER[0] - main_stone_extents['half_width'], CENTER[1] + main_stone_extents['half_height']), # Bottom-left of stone
-            (CENTER[0] - main_stone_extents['half_width'], CENTER[1] - main_stone_extents['half_height']), # Top-left of stone
-            (connection_x_left - band_thickness, band_y_start),
-            (connection_x_left - band_thickness, band_y_end),
-        ]
-        points_right = [
-            (CENTER[0] + main_stone_extents['half_width'], CENTER[1] + main_stone_extents['half_height']), # Bottom-right of stone
-            (CENTER[0] + main_stone_extents['half_width'], CENTER[1] - main_stone_extents['half_height']), # Top-right of stone
-            (connection_x_right + band_thickness, band_y_start),
-            (connection_x_right + band_thickness, band_y_end),
-        ]
-        # This is a simplification; for a perfect fit, you'd need to calculate precise tangent points.
-        # For now, we'll draw a rectangle that covers the area and blends.
-        draw.rectangle(
-            [(connection_x_left - band_thickness, band_y_start), (connection_x_right + band_thickness, band_y_end)],
-            fill=band_color
-        )
-    elif "Marquise" in shape:
-        # For marquise shape, connect to the widest part (sides)
-        points_left = [
-            (CENTER[0] - main_stone_extents['half_width'], CENTER[1]), # Left point of stone
-            (connection_x_left - band_thickness, band_y_start),
-            (connection_x_left - band_thickness, band_y_end),
-        ]
-        points_right = [
-            (CENTER[0] + main_stone_extents['half_width'], CENTER[1]), # Right point of stone
-            (connection_x_right + band_thickness, band_y_start),
-            (connection_x_right + band_thickness, band_y_end),
-        ]
-        draw.rectangle(
-            [(connection_x_left - band_thickness, band_y_start), (connection_x_right + band_thickness, band_y_end)],
-            fill=band_color
-        )
-    # The default for settings other than solitaire (halo, three-stone, seven-stone)
-    # will be covered by the main band drawing, as they are generally more symmetrical.
-    if not ("solitaire" in setting_key):
-        draw.rectangle(
-            [(connection_x_left, band_y_start), (connection_x_right, band_y_end)],
-            fill=band_color
-        )
-    
+    # === END OF CORRECTED BLOCK B ===
+        
     # --- Step C: Draw Main Diamond (SECOND) ---
     main_radius_x = main_stone_extents['half_width']
     main_radius_y = main_stone_extents['half_height']
@@ -391,18 +330,37 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
         draw.rectangle(main_stone_coords, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
 
     # --- Step D: Draw the Setting (Prongs, Halo, Side Stones) (LAST) ---
+    # === THIS BLOCK IS CORRECTED ===
     if "solitaire" in setting_key:
         draw_prongs(draw, CENTER[0], CENTER[1], main_radius_x, main_radius_y, band_color, base_size_px=base_size_px)
             
     elif "halo" in setting_key:
         halo_padding = 8
         coords = [(main_stone_coords[0][0] - halo_padding, main_stone_coords[0][1] - halo_padding), (main_stone_coords[1][0] + halo_padding, main_stone_coords[1][1] + halo_padding)]
-        if "Round" in shape:
+        
+        # Draw the halo shape corresponding to the main diamond
+        if "Round" in shape or "Oval" in shape:
             draw.ellipse(coords, outline=band_color, width=6)
-        elif "Cushion" in shape or "Princess" in shape:
+        elif "Princess" in shape or "Cushion" in shape or "Emerald" in shape or "Radiant" in shape or "Asscher" in shape:
              draw.rounded_rectangle(coords, radius=halo_padding, outline=band_color, width=6)
-        else: 
-            draw.ellipse(coords, outline=band_color, width=6)
+        elif "Pear" in shape:
+             # For pear halo, we can try to approximate a larger pear shape
+             halo_main_radius_x = main_radius_x + halo_padding
+             halo_main_radius_y = main_radius_y + halo_padding
+             points = [
+                 (CENTER[0], CENTER[1] - halo_main_radius_y), # Top point
+                 (CENTER[0] + halo_main_radius_x, CENTER[1]), # Right shoulder
+                 (CENTER[0] + halo_main_radius_x * 0.5, CENTER[1] + halo_main_radius_y), # Bottom-right
+                 (CENTER[0] - halo_main_radius_x * 0.5, CENTER[1] + halo_main_radius_y), # Bottom-left
+                 (CENTER[0] - halo_main_radius_x, CENTER[1])  # Left shoulder
+             ]
+             draw.polygon(points, outline=band_color, width=6)
+        elif "Marquise" in shape:
+             # For marquise halo, approximate a larger marquise shape
+             halo_main_radius_x = main_radius_x + halo_padding
+             halo_main_radius_y = main_radius_y + halo_padding
+             points = [(CENTER[0], CENTER[1] - halo_main_radius_y), (CENTER[0] + halo_main_radius_x, CENTER[1]), (CENTER[0], CENTER[1] + halo_main_radius_y), (CENTER[0] - main_radius_x, CENTER[1])]
+             draw.polygon(points, outline=band_color, width=6)
             
     elif "three_stone" in setting_key:
         side_stone_shape = side_shapes_tuple[0]
@@ -416,12 +374,13 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
         rx2, ry2 = draw_side_stone(draw, side_stone_shape, right_center_x, CENTER[1], side_stone_radius, DIAMOND_FILL, DIAMOND_OUTLINE, orientation='left')
         draw_prongs(draw, right_center_x, CENTER[1], rx2, ry2, band_color, base_size_px=base_size_px)
         
+        # Prongs for the main stone in a three-stone setting
         draw_prongs(draw, CENTER[0], CENTER[1], main_radius_x, main_radius_y, band_color, base_size_px=base_size_px)
         
     elif "seven_stone" in setting_key:
         shape_1, shape_2, shape_3 = side_shapes_tuple
         side_stone_radius = max(3, int(base_size_px / 6.0))
-        buffer = 1 
+        buffer = 1
         
         # --- Left Cluster (3 stones) ---
         left_1_x = CENTER[0] - main_radius_x - side_stone_radius
@@ -457,6 +416,7 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
         
         # Prongs for main stone
         draw_prongs(draw, CENTER[0], CENTER[1], main_radius_x, main_radius_y, band_color, base_size_px=base_size_px)
+    # === END OF CORRECTED BLOCK D ===
 
     return canvas
 
@@ -517,4 +477,3 @@ with col2:
     * **Diamond Cost:** ₪{diamond_price:,.0f}
     * **Setting & Metal Cost:** ₪{setting_price:,.0f}
     """)
-
