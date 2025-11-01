@@ -20,10 +20,12 @@ METALS = {
     # Platinum removed
     "Rose Gold (14K)": "rose_gold"
 }
+# UPDATED: More specific setting options
 SETTINGS = {
     "Solitaire (Single Diamond)": "solitaire",
-    "Halo (Center diamond surrounded by small ones)": "halo",
-    "Three-Stone": "three_stone"
+    "Halo": "halo",
+    "Three-Stone (Round Sides)": "three_stone",
+    "Five-Stone (Round Sides)": "five_stone"
 }
 # NEW: Certificate Types
 CERTIFICATE_TYPES = ["GIA", "CGL"]
@@ -72,8 +74,13 @@ COLOR_MULTIPLIERS = {"J": 0.8, "I": 0.9, "H": 1.0, "G": 1.1, "F": 1.3, "E": 1.5,
 CLARITY_MULTIPLIERS = {"SI2": 0.8, "SI1": 0.9, "VS2": 1.0, "VS1": 1.1, "VVS2": 1.3, "VVS1": 1.5, "IF": 1.8, "FL": 2.2}
 # IMPORTANT: Keys must match the new English strings in METALS
 METAL_BASE_PRICE = {"Yellow Gold (14K)": 500, "White Gold (14K)": 550, "Rose Gold (14K)": 520} # In USD
-# IMPORTANT: Keys must match the new English strings in SETTINGS
-SETTING_BASE_PRICE = {"Solitaire (Single Diamond)": 200, "Halo (Center diamond surrounded by small ones)": 800, "Three-Stone": 600} # In USD
+# UPDATED: Prices for new settings
+SETTING_BASE_PRICE = {
+    "Solitaire (Single Diamond)": 200,
+    "Halo": 800,
+    "Three-Stone (Round Sides)": 600,
+    "Five-Stone (Round Sides)": 1000
+} # In USD
 # NEW: Certificate price factor
 CERTIFICATE_MULTIPLIERS = {"GIA": 1.15, "CGL": 1.0} # GIA costs 15% more
 
@@ -100,11 +107,12 @@ def calculate_price(shape, carat, color, clarity, metal, setting, certificate):
     
     return total_price_ils, diamond_price_ils, setting_price_ils
 
-# --- Image SKETCHING Logic (Top-Down View) ---
+# --- Image SKETCHING Logic (NEW: Top-Down "On-Hand" View) ---
 
 def create_ring_sketch(shape, carat, metal_key, setting_key):
     """
-    Procedurally draws a 2D sketch of the ring from a top-down view.
+    Procedurally draws a 2D sketch of the ring from a top-down view,
+    showing the band shoulders, not the full circle.
     """
     IMG_SIZE = 500
     CENTER = (IMG_SIZE // 2, IMG_SIZE // 2)
@@ -119,50 +127,42 @@ def create_ring_sketch(shape, carat, metal_key, setting_key):
     # This is the main logic: convert carat to pixel size
     base_size_px = int(carat * 80)
     half_size = base_size_px // 2
+    
+    # This will store the bounding box of the main stone
+    main_stone_coords = [] 
+    # This will track the total width of all stones for drawing the band
+    total_setting_width = base_size_px 
 
-    # 3. Draw the Ring Band (as a simple thick circle)
-    # This is the top-down view
-    band_radius = half_size + 15 
-    band_thickness = 10
-    draw.ellipse(
-        [(CENTER[0] - band_radius, CENTER[1] - band_radius),
-         (CENTER[0] + band_radius, CENTER[1] + band_radius)],
-        outline=band_color,
-        width=band_thickness
-    )
-    
-    # 4. Draw the Diamond Shape
-    shape_coords = []
-    
+    # --- 3. Draw Main Diamond (FIRST) ---
     if "Round" in shape:
-        shape_coords = [
+        main_stone_coords = [
             (CENTER[0] - half_size, CENTER[1] - half_size),
             (CENTER[0] + half_size, CENTER[1] + half_size)
         ]
-        draw.ellipse(shape_coords, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
+        draw.ellipse(main_stone_coords, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
     
     elif "Princess" in shape:
-        shape_coords = [
+        main_stone_coords = [
             (CENTER[0] - half_size, CENTER[1] - half_size),
             (CENTER[0] + half_size, CENTER[1] + half_size)
         ]
-        draw.rectangle(shape_coords, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
+        draw.rectangle(main_stone_coords, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
         # Add simple facets
-        draw.line([(shape_coords[0]), (shape_coords[1])], fill=DIAMOND_OUTLINE)
-        draw.line([(shape_coords[0][0], shape_coords[1][1]), (shape_coords[1][0], shape_coords[0][1])], fill=DIAMOND_OUTLINE)
+        draw.line([(main_stone_coords[0]), (main_stone_coords[1])], fill=DIAMOND_OUTLINE)
+        draw.line([(main_stone_coords[0][0], main_stone_coords[1][1]), (main_stone_coords[1][0], main_stone_coords[0][1])], fill=DIAMOND_OUTLINE)
 
     elif "Oval" in shape:
         # Make it taller than it is wide (e.g., 1.4 ratio)
         oval_height = int(half_size * 1.4)
-        shape_coords = [
+        main_stone_coords = [
             (CENTER[0] - half_size, CENTER[1] - oval_height),
             (CENTER[0] + half_size, CENTER[1] + oval_height)
         ]
-        draw.ellipse(shape_coords, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
+        draw.ellipse(main_stone_coords, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
 
     elif "Emerald" in shape:
         # A rectangle with cut corners (an octagon)
-        cut_size = half_size // 4 # How much to cut off the corners
+        cut_size = half_size // 4
         points = [
             (CENTER[0] - half_size + cut_size, CENTER[1] - half_size), # Top-left
             (CENTER[0] + half_size - cut_size, CENTER[1] - half_size), # Top-right
@@ -173,45 +173,131 @@ def create_ring_sketch(shape, carat, metal_key, setting_key):
             (CENTER[0] - half_size, CENTER[1] + half_size - cut_size), # Left-bottom
             (CENTER[0] - half_size, CENTER[1] - half_size + cut_size), # Left-top
         ]
+        main_stone_coords = [(CENTER[0] - half_size, CENTER[1] - half_size), (CENTER[0] + half_size, CENTER[1] + half_size)] # Approx
         draw.polygon(points, outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2)
 
     else:
         # Fallback for unimplemented shapes
-        draw.rectangle(
-            [(CENTER[0] - half_size, CENTER[1] - half_size),
-             (CENTER[0] + half_size, CENTER[1] + half_size)],
-            outline="red", width=2
-        )
+        main_stone_coords = [
+            (CENTER[0] - half_size, CENTER[1] - half_size),
+             (CENTER[0] + half_size, CENTER[1] + half_size)
+        ]
+        draw.rectangle(main_stone_coords, outline="red", width=2)
         draw.text((10, 10), f"Sketch for '{shape}' not yet implemented.", fill="red")
 
-    # 5. Draw the Setting (Prongs)
-    prong_size = 8
-    half_prong = prong_size // 2
-
-    if "solitaire" in setting_key and shape_coords:
-        if "Round" in shape or "Princess" in shape:
-            # Simple 4 prongs at the corners
-            coords = shape_coords
-            # Top-left prong
-            draw.ellipse([(coords[0][0]-half_prong, coords[0][1]-half_prong), (coords[0][0]+half_prong, coords[0][1]+half_prong)], fill=band_color)
-            # Top-right prong
-            draw.ellipse([(coords[1][0]-half_prong, coords[0][1]-half_prong), (coords[1][0]+half_prong, coords[0][1]+half_prong)], fill=band_color)
-            # Bottom-left prong
-            draw.ellipse([(coords[0][0]-half_prong, coords[1][1]-half_prong), (coords[0][0]+half_prong, coords[1][1]+half_prong)], fill=band_color)
-            # Bottom-right prong
-            draw.ellipse([(coords[1][0]-half_prong, coords[1][1]-half_prong), (coords[1][0]+half_prong, coords[1][1]+half_prong)], fill=band_color)
+    # --- 4. Draw the Setting (Prongs, Halo, Side Stones) ---
+    
+    if "solitaire" in setting_key and main_stone_coords:
+        # Simple 4 prongs at the corners
+        coords = main_stone_coords
+        prong_size = 8
+        half_prong = prong_size // 2
+        # Top-left prong
+        draw.ellipse([(coords[0][0]-half_prong, coords[0][1]-half_prong), (coords[0][0]+half_prong, coords[0][1]+half_prong)], fill=band_color)
+        # Top-right prong
+        draw.ellipse([(coords[1][0]-half_prong, coords[0][1]-half_prong), (coords[1][0]+half_prong, coords[0][1]+half_prong)], fill=band_color)
+        # Bottom-left prong
+        draw.ellipse([(coords[0][0]-half_prong, coords[1][1]-half_prong), (coords[0][0]+half_prong, coords[1][1]+half_prong)], fill=band_color)
+        # Bottom-right prong
+        draw.ellipse([(coords[1][0]-half_prong, coords[1][1]-half_prong), (coords[1][0]+half_prong, coords[1][1]+half_prong)], fill=band_color)
             
-    elif "halo" in setting_key and shape_coords:
+    elif "halo" in setting_key and main_stone_coords:
         # Draw a "halo" (another border) around the main stone
         halo_padding = 10
+        coords = main_stone_coords
         if "Round" in shape:
             draw.ellipse(
-                [(shape_coords[0][0] - halo_padding, shape_coords[0][1] - halo_padding),
-                 (shape_coords[1][0] + halo_padding, shape_coords[1][1] + halo_padding)],
+                [(coords[0][0] - halo_padding, coords[0][1] - halo_padding),
+                 (coords[1][0] + halo_padding, coords[1][1] + halo_padding)],
                 outline=band_color, width=8
             )
+            total_setting_width += (halo_padding * 2) # Add to total width
         # (You would add 'elif' for other halo shapes here)
             
+    elif "three_stone" in setting_key and main_stone_coords:
+        side_stone_radius = base_size_px // 4 # Smaller side stones
+        gap = 5
+        
+        # Left stone
+        left_center_x = CENTER[0] - half_size - gap - side_stone_radius
+        draw.ellipse(
+            [(left_center_x - side_stone_radius, CENTER[1] - side_stone_radius),
+             (left_center_x + side_stone_radius, CENTER[1] + side_stone_radius)],
+            outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2
+        )
+        
+        # Right stone
+        right_center_x = CENTER[0] + half_size + gap + side_stone_radius
+        draw.ellipse(
+            [(right_center_x - side_stone_radius, CENTER[1] - side_stone_radius),
+             (right_center_x + side_stone_radius, CENTER[1] + side_stone_radius)],
+            outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2
+        )
+        
+        # Update total width
+        total_setting_width += (side_stone_radius * 4) + (gap * 2)
+
+    elif "five_stone" in setting_key and main_stone_coords:
+        side_stone_radius = base_size_px // 5 # Even smaller
+        gap = 4
+
+        # --- Left side ---
+        # Inner left stone
+        left_1_x = CENTER[0] - half_size - gap - side_stone_radius
+        draw.ellipse(
+            [(left_1_x - side_stone_radius, CENTER[1] - side_stone_radius),
+             (left_1_x + side_stone_radius, CENTER[1] + side_stone_radius)],
+            outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2
+        )
+        # Outer left stone
+        left_2_x = left_1_x - (side_stone_radius * 2) - gap
+        draw.ellipse(
+            [(left_2_x - side_stone_radius, CENTER[1] - side_stone_radius),
+             (left_2_x + side_stone_radius, CENTER[1] + side_stone_radius)],
+            outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2
+        )
+        
+        # --- Right side ---
+        # Inner right stone
+        right_1_x = CENTER[0] + half_size + gap + side_stone_radius
+        draw.ellipse(
+            [(right_1_x - side_stone_radius, CENTER[1] - side_stone_radius),
+             (right_1_x + side_stone_radius, CENTER[1] + side_stone_radius)],
+            outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2
+        )
+        # Outer right stone
+        right_2_x = right_1_x + (side_stone_radius * 2) + gap
+        draw.ellipse(
+            [(right_2_x - side_stone_radius, CENTER[1] - side_stone_radius),
+             (right_2_x + side_stone_radius, CENTER[1] + side_stone_radius)],
+            outline=DIAMOND_OUTLINE, fill=DIAMOND_FILL, width=2
+        )
+        
+        # Update total width
+        total_setting_width += (side_stone_radius * 8) + (gap * 4)
+            
+    # --- 5. Draw the Ring Band "Shoulders" (LAST) ---
+    # This is the "top-down on narrow part" view
+    band_thickness = 12
+    band_y_start = CENTER[1] - (band_thickness // 2)
+    band_y_end = CENTER[1] + (band_thickness // 2)
+
+    # Calculate where the band should stop, based on the total width of all stones
+    setting_half_width = total_setting_width // 2
+    band_end_x_left = CENTER[0] - setting_half_width
+    band_end_x_right = CENTER[0] + setting_half_width
+
+    # Left shoulder
+    draw.rectangle(
+        [(0, band_y_start), (band_end_x_left, band_y_end)],
+        fill=band_color
+    )
+    # Right shoulder
+    draw.rectangle(
+        [(band_end_x_right, band_y_start), (IMG_SIZE, band_y_end)],
+        fill=band_color
+    )
+    
     return canvas
 
 # --- Main App Logic ---
