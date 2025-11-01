@@ -266,7 +266,7 @@ def create_ring_sketch(shape, carat, metal_key, setting_key, side_shapes_tuple):
     band_y_start = CENTER[1] - (band_thickness // 2)
     band_y_end = CENTER[1] + (band_thickness // 2)
 
-    setting_half_width = (total_setting_width // 2) + 5 
+    setting_half_width = (total_setting_width // 2)
     
     if shape in ["Oval", "Pear", "Marquise"]:
         # Adjust band connection for taller stones
